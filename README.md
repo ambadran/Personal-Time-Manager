@@ -1,1 +1,1 @@
-# Tuition-App
+# Personal Time Manager
