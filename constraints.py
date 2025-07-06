@@ -1,32 +1,62 @@
 from csp import Constraint, CSP
-from sessions import Prayers, Tuitions, Personal
+from prayers import Prayers
 
 class NoTimeOverlapConstraint(Constraint):
     '''
     Constraint class to prevent time slots from overlapping
+    Argument to allow overlap for specific variables (for example prayer in middle of lesson)
+
+
+    Overlap is defined as following:
+    session A overlap session B if session A starts after session B and before the duration needed for session B
     '''
-    def __init__(self, variables: list):
-        super().__init__(variables)
+    def __init__(self, variable: str, exceptions: list, tolerance: int):
+        '''
+        Variable of the session that the overlap prevention constraint applies to
+        param exceptions: list of exceptions that could overlap this specific variable
+        param tolerance: an integer of the amount of minutes where even if an exception session starts after the start but within specific amount of minutes <tolerance> will be rejected (not satisfied)
+        '''
+        super().__init__([variable])
+        self.session = variable
+        self.tolerance = tolerance
 
     def satisfied(self, assignment) -> bool:
         '''
         actual testing for overlap
         '''
-        pass
+        if self.session not in assignment.keys():
+            # Skip entirely if this session is not yet assigned
+            return True
 
-class TimeNeededConstraint(Constraint):
-    '''
-    Constraint to make sure timeslot took it's needed time
-    '''
-    def __init__(self, variable, time_needed: int):
-        super().__init__([variable])
-        self.time_needed = time_needed
-        
-    def satisfied(self, assignments) -> bool:
-        '''
-        test if variable has enough time assigned to it
-        '''
-        pass
+
+        # Update overlapped_sessions list and duration if an allowed_to_overlap_session is present
+        self.session.reset_overlap()
+        for other_session, other_session_start_time in assignment.items():
+            # skip test if it's the session to be tested
+            if other_session == self.session:
+                continue
+
+            # test time overlap and if allowed overlap session and tolerance
+            if (other_session_start_time > assignment[self.session] 
+                and other_session_start_time < (assignment[self.session] + self.session.duration)) 
+            and (other_session in self.session.allowed_to_overlap_session) 
+            and ((other_session_start_time - assignment[self.session]) > self.tolerance):
+                    self.session.add_overlap(other_session)
+
+        # Actual test
+        for other_session, other_session_start_time in assignment.items():
+            # skip test if it's the session to be tested
+            if other_session == self.session:
+                continue
+
+            if other_session in self.session.overlapped_sessions:
+                # skip if this is allowed overlapping
+                continue
+
+            if other_session_start_time > assignment[self.session] and other_session_start_time < (assignment[self.session] + self.session.duration):
+                return False
+
+        return True
 
 if __name__ == "__main__":
 
@@ -34,10 +64,10 @@ if __name__ == "__main__":
     domains: dict[str: list[int]] = {}
 
     # the sessions needed to be fulfilled
-    prayers = ["dhur_saturday", "asr_saturday", "maghrib_saturday", "isha_saturday", "dhur_sunday", "asr_sunday", "maghrib_sunday", "isha_sunday"]
+    prayers = Prayers.PRAYERS_WEEKLY
     work_meetings = ["weekly_plan_saturday_meeting"]
     lessons = ["abdullah_math1", "abdullah_math2", "omran_mila_math"]
-    personal_things = ["lunch_prepare", "lunch_time"]
+    personal = ["lunch_prepare", "lunch_time"]
     others = []
     sessions.extend(prayers) # Prayers
     sessions.extend(work_meetings) # Main Job / freelance meetings

@@ -12,16 +12,16 @@ class Constraint(ABC):
     def __init__(self, variables):
         self.variables = variables
         
-        # abstractmethod decorator makes sure the two rules of abstract base classes are met
-        # it will raise a well documented TypeError on what rule of the two is broken if 
-        @abstractmethod
-        def satisfied(self, assignment: dict) -> bool:
-            """
-            :param assignment: dict of variables keys and possible value from the domains dict for the dict value
-            :return boolean: True if this particular constraint object is satisfied on the variables this object affect(in the variables attrib)
-                            according to the value assignment in the passed assignments argument
-            """
-            pass
+    # abstractmethod decorator makes sure the two rules of abstract base classes are met
+    # it will raise a well documented TypeError on what rule of the two is broken if 
+    @abstractmethod
+    def satisfied(self, assignment: dict) -> bool:
+        """
+        :param assignment: dict of variables keys and possible value from the domains dict for the dict value
+        :return boolean: True if this particular constraint object is satisfied on the variables this object affect(in the variables attrib)
+                        according to the value assignment in the passed assignments argument
+        """
+        pass
 
 
 class CSP:
