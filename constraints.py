@@ -60,8 +60,8 @@ class NoTimeOverlapConstraint(Constraint):
 
 if __name__ == "__main__":
 
-    sessions: list = []
-    domains: dict[str: list[int]] = {}
+    variables: list[Session] = []
+    domains: dict[Session: list[struct_time]] = {}
 
     # the sessions needed to be fulfilled
     prayers = Prayers.PRAYERS_WEEKLY

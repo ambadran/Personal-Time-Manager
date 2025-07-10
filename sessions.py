@@ -2,38 +2,63 @@
 Abstract class of sessions
 This script defines the "variables" in the CSP framework which is time 'sessions' of different types and need different constraints and has specific time domains
 '''
+from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import TypeAlias
+from time import struct_time, strftime
+
+# custom types
+Minutes: TypeAlias = int
 
 class Session(ABC):
     '''
-    This is the Sesssion Abstract Class
+    This is the Session Abstract Class
     '''
-    def __init__(self, name: str, base_duration: int, allowed_to_overlap_session: list[Session] = []):
+    def __init__(self, name: str, 
+                 base_duration: Minutes, 
+                 domain_values: list[struct_time],
+                 allowed_to_overlap_session: list[Session] = []):
         '''
 
         '''
         self.name = name
         self.base_duration = duration
+        self.domain_values = domain_values
         self.allowed_to_overlap_session = allowed_to_overlap_session
         self.overlapped_sessions = []
 
-    def add_overlap(self, overlapped_session: Session):
+    def add_overlap(self, overlapped_session: Session) -> None:
         '''
         adds the overlapped session and modifies duration accordingly
         '''
         self.overlapped_sessions.append(overlapped_session)
 
-    def reset_overlap(self):
+    def reset_overlap(self) -> None:
         '''
         resets overlap list
         '''
         self.overlapped_sessions = []
 
     @property
-    def duration(self):
+    def duration(self) -> Minutes:
         duration = self.base_duration
         for overlapped_session in self.overlapped_sessions:
             duration += overlapped_session.duration
 
         return duration
 
+class SessionGroup(ABC):
+    '''
+    This is session group class
+    '''
+    def __init__(self, week_start_date: struct_time):
+        self.week_start_date: struct_time = week_start_date
+
+    @abstractmethod
+    def csp_variables(self) -> list[Session]:
+        pass
+
+    @abstractmethod
+    def csp_domains(self) -> dict[Session: list[struct_time]]:
+        pass
+        
