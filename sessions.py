@@ -10,19 +10,28 @@ from time import struct_time, strftime
 # custom types
 Minutes: TypeAlias = int
 
-class Session(ABC):
+class SessionDescriptor(ABC):
+    def __init__(self):
+        pass
+
+    @property
+    @abstractmethod
+    def name(self):
+        pass
+
+class Session:
     '''
     This is the Session Abstract Class
     '''
-    def __init__(self, name: str, 
+    def __init__(self, session_descriptor: SessionDescriptor, 
                  base_duration: Minutes, 
                  domain_values: list[struct_time],
                  allowed_to_overlap_session: list[Session] = []):
         '''
 
         '''
-        self.name = name
-        self.base_duration = duration
+        self.session_descriptor = session_descriptor
+        self.base_duration = base_duration
         self.domain_values = domain_values
         self.allowed_to_overlap_session = allowed_to_overlap_session
         self.overlapped_sessions = []
@@ -46,6 +55,13 @@ class Session(ABC):
             duration += overlapped_session.duration
 
         return duration
+
+    def __repr__(self):
+        return f"(Session Obj: {self.session_descriptor.name} for {self.duration})"
+
+
+    def __str__(self):
+        return f"{self.session_descriptor.name} for {self.duration}\n@ {self.domain_values}"
 
 class SessionGroup(ABC):
     '''

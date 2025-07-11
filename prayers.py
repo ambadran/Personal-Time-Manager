@@ -6,12 +6,46 @@ from time import struct_time, strftime
 import time
 from datetime import datetime
 import json
-from sessions import SessionGroup, Session
+from sessions import SessionGroup, Session, SessionDescriptor
+from enum import Enum, auto
+from dataclasses import dataclass
+from typing import Tuple
 
+class PrayerType(Enum):
+    FAJR = auto()
+    DHUHR = auto()
+    ASR = auto()
+    MAGHRIB = auto()
+    ISHA = auto()
+
+class WeekDay(Enum):
+    SATURDAY = auto()
+    SUNDAY = auto()
+    MONDAY = auto()
+    TUESDAY = auto()
+    WEDNESDAY = auto()
+    THURSDAY = auto()
+    FRIDAY = auto()
+
+@dataclass(frozen=True)
+class Prayer(SessionDescriptor):
+    type: PrayerType
+    day: WeekDay
+    
+    @property
+    def name(self):
+        if self.type == PrayerType.DHUHR and self.day == WeekDay.FRIDAY:
+            return "JUMAH"
+        return f"{self.type.name}_{self.day.name}"
+
+# Create all combinations programmatically
 class Prayers(SessionGroup):
-    PRAYERS_WEEKLY = ("FAJR_SATURDAY", "DHUHR_SATURDAY", "ASR_SATURDAY", "MAGHRIB_SATURDAY", "ISHA_SATURDAY", "FAJR_SUNDAY", "DHUHR_SUNDAY", "ASR_SUNDAY", "MAGHRIB_SUNDAY", "ISHA_SUNDAY", "FAJR_MONDAY", "DHUHR_MONDAY", "ASR_MONDAY", "MAGHRIB_MONDAY", "ISHA_MONDAY", "FAJR_TUESDAY", "DHUHR_TUESDAY", "ASR_TUESDAY", "MAGHRIB_TUESDAY", "ISHA_TUESDAY", "FAJR_WEDNESDAY", "DHUHR_WEDNESDAY", "ASR_WEDNESDAY", "MAGHRIB_WEDNESDAY", "ISHA_WEDNESDAY", "FAJR_THURSDAY", "DHUHR_THURSDAY", "ASR_THURSDAY", "MAGHRIB_THURSDAY", "ISHA_THURSDAY", "FAJR_FRIDAY", "DHUHR_FRIDAY", "ASR_FRIDAY", "MAGHRIB_FRIDAY", "ISHA_FRIDAY")
+    ALL_PRAYERS = tuple(Prayer(type=prayer, day=day) for prayer in PrayerType for day in WeekDay)
 
-    EQAMA_TIMES = [20, 20, 20, 10, 20] 
+    EQAMA_TIMES = {PrayerType.FAJR: 20, PrayerType.DHUHR: 20, PrayerType.ASR: 20, PrayerType.MAGHRIB: 10, PrayerType.ISHA: 20}
+
+    PRAYER_DURATION = 15  # how much it takes to go and return from prayer
+    EQAMA_TOLERANCE = 5  # time I need to get up before eqama to not miss prayer
 
     LATITUDE = 29.954090 
     LONGITUDE = 31.067551
@@ -25,29 +59,37 @@ class Prayers(SessionGroup):
         super().__init__(week_start_date)
 
         # creating the sessions
-        self._csp_variables = [Session(prayer_name, self.get_prayer_domain_times(prayer_name)) for prayer_name in self.PRAYERS_WEEKLY]
+        self._csp_variables = [Session(prayer, self.PRAYER_DURATION, self.get_prayer_domain_times(prayer)) for prayer in self.ALL_PRAYERS]
 
-    def get_prayer_day_pointer(self, prayer: str) -> int:
+    def get_prayer_eqama(self, prayer: Prayer) -> int:
+        '''
+        return duration
+        '''
+        # check if name is valid
+        if prayer not in self.ALL_PRAYERS:
+            raise ValueError(f"Prayer name is wrong\nPlease choose from\n{self.ALL_PRAYERS}")
+
+        return self.EQAMA_TIMES[prayer.type]
+
+
+    def get_prayer_day_pointer(self, prayer: Prayer) -> int:
         '''
         takes in a prayer from the week and return the pointer of the day it is in 
         0 is saturday, 1 is monday, etc..
         '''
         # check if name is valid
-        if prayer not in self.PRAYERS_WEEKLY:
-            raise ValueError(f"Prayer name is wrong\nPlease choose from\n{self.PRAYERS_WEEKLY}")
+        if prayer not in self.ALL_PRAYERS:
+            raise ValueError(f"Prayer name is wrong\nPlease choose from\n{self.ALL_PRAYERS}")
 
-        prayer_name, day = prayer.split("_")
-        week_days = ("SATURDAY", "SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY")
-        return week_days.index(day)
+        return list(WeekDay).index(prayer.day)
 
-
-    def prayer_name_to_date_and_name(self, prayer: str) -> tuple[str, str]:
+    def prayer_name_to_date_and_name(self, prayer: Prayer) -> tuple[str, str]:
         '''
         returns the data needed to be parsed as json and sent as HTML request to server
         '''
         # check if name is valid
-        if prayer not in self.PRAYERS_WEEKLY:
-            raise ValueError(f"Prayer name is wrong\nPlease choose from\n{self.PRAYERS_WEEKLY}")
+        if prayer not in self.ALL_PRAYERS:
+            raise ValueError(f"Prayer name is wrong\nPlease choose from\n{self.ALL_PRAYERS}")
 
         # find day pointer
         day_pointer = self.get_prayer_day_pointer(prayer)
@@ -57,8 +99,7 @@ class Prayers(SessionGroup):
         # prayer_num = prayer_per_day.index(prayer_name)
         
         # the API uses format: first letter capital and rest is small case
-        prayer_name, _ = prayer.split("_")
-        prayer_name = prayer_name.lower().capitalize()
+        prayer_name = prayer.type.name.lower().capitalize()
         
         # get wanted data
         wanted_date = struct_time((self.week_start_date.tm_year, self.week_start_date.tm_mon, self.week_start_date.tm_mday+day_pointer, 0, 0, 0, 0, 0, -1))
@@ -67,7 +108,8 @@ class Prayers(SessionGroup):
         return wanted_date_proper_format, prayer_name
  
 
-    def get_prayer_time(self, prayer: str) -> struct_time:
+
+    def get_prayer_time(self, prayer: Prayer) -> struct_time:
         '''
         returns the struct_time of the time of a specific prayer within this week
         '''
@@ -80,14 +122,17 @@ class Prayers(SessionGroup):
             "method": self.PRAYER_CALC_METHOD
         }
         try:
-            response = requests.get(self.BASE_URL, params=params)
-            response.raise_for_status()  # Raise exception for HTTP errors
+            # response = requests.get(self.BASE_URL, params=params)
+            # response.raise_for_status()  # Raise exception for HTTP errors
+            # data: dict = response.json()
             
-            data: dict = response.json()
+            # ONLY USED FOR TESTING to avoid doing all the HTTP Requests
+            from test_api import athan_api_data
+            data = athan_api_data[prayer.name]
             
             if data["code"] == 200 and "data" in data:
+                print(f"acccessed {self.BASE_URL}")
                 timings = data["data"]["timings"]
-                print(timings)
                 date_info = data["data"]["date"]["readable"]
                 
                 hour, minute = timings[prayer_name].split(":")  # format \d\d:\d\d -> hour:minutes
@@ -104,21 +149,35 @@ class Prayers(SessionGroup):
 
         return struct_time((self.week_start_date.tm_year, self.week_start_date.tm_mon, self.week_start_date.tm_mday+self.get_prayer_day_pointer(prayer), int(hour), int(minute), 0, 0, 0, -1))
 
-    def get_prayer_domain_times(self, prayer: str) -> list[struct_time]:
-        return []
+    def get_prayer_domain_times(self, prayer: Prayer) -> list[struct_time]:
+        '''
+        return a list of all the possible time to start prayer
+        '''
+        # converting struct_time to epoch time to be able to add
+        athan_time: int = time.mktime(self.get_prayer_time(prayer)) 
+        # adding the minutes I want then convert back to struct_time
+        get_up_time = time.localtime(athan_time + 60*self.get_prayer_eqama(prayer)-60*self.EQAMA_TOLERANCE)
+        return [get_up_time]
 
     @property
     def csp_variables(self) -> list[Session]:
-        pass
+        return self._csp_variables
 
     @property
     def csp_domains(self) -> dict[Session: list[struct_time]]:
-        pass
+        domains = {}
+        for session in self.csp_variables:
+            domains[session] = session.domain_values
+
+        return domains
 
 # Example usage
 if __name__ == "__main__":
     wanted_week = struct_time((2025, 12, 7, 0, 0, 0, 5, 0, -1))
     prayers = Prayers(wanted_week)
+
+    print()
+    for i in prayers.csp_variables:
+        print(i)
    
-    print(prayers.get_prayer_time("FAJR_SATURDAY"))
 

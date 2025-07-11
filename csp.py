@@ -38,7 +38,7 @@ class CSP:
 
             # as we are looping varaibles, checking that all variables are in the domain dict by the way
             if variable not in self.domains:
-                raise LookupError("Every variable must have a domain list assigned to it in the domain dict")
+                raise LookupError(f"Every variable must have a domain list assigned to it in the domain dict\n{variable} is not in domains")
 
 
     def add_constraint(self, constraint):
