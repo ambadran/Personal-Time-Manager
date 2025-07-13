@@ -1,6 +1,6 @@
 from csp import Constraint, CSP
 from prayers import Prayers
-from sessions import Session
+from sessions import Session, Minutes
 from time import struct_time
 from typing import Optional
 
@@ -13,19 +13,26 @@ class NoTimeOverlapConstraint(Constraint):
     Overlap is defined as following:
     session A overlap session B if session A starts after session B and before the duration needed for session B
     '''
-    def __init__(self, variable: str, tolerance: int):
+    def __init__(self, variable: Session, tolerance: Minutes):
         '''
         Variable of the session that the overlap prevention constraint applies to
-        param exceptions: list of exceptions that could overlap this specific variable
+        Takes into account the .
         param tolerance: an integer of the amount of minutes where even if an exception session starts after the start but within specific amount of minutes <tolerance> will be rejected (not satisfied)
         '''
         super().__init__([variable])
         self.session = variable
         self.tolerance = tolerance
 
-    def satisfied(self, assignment) -> bool:
+    def satisfied(self, assignment: dict[Session: struct_time]) -> bool:
         '''
-        actual testing for overlap
+        actual testing for overlap of specific self.session with the other assignment dictionary
+        1- update overlapped_sessions every run, to account for possible change in previous trial
+        2- test 
+            1- any of the others start after self.session starts
+            AND
+            2- any of the others starts before self.session ends
+            AND
+            3- not within tolerance
         '''
         if self.session not in assignment.keys():
             # Skip entirely if this session is not yet assigned
@@ -58,43 +65,43 @@ class NoTimeOverlapConstraint(Constraint):
 
         return True
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-wanted_week = struct_time((2025, 7, 12, 0, 0, 0, 5, 0, -1))
-prayers = Prayers(wanted_week)
-# work_meetings = ["weekly_plan_saturday_meeting"]
-# lessons = ["abdullah_math1", "abdullah_math2", "omran_mila_math"]
-# personal = ["lunch_prepare", "lunch_time"]
-# others = []
+    wanted_week = struct_time((2025, 7, 12, 0, 0, 0, 5, 0, -1))
+    prayers = Prayers(wanted_week)
+    # work_meetings = ["weekly_plan_saturday_meeting"]
+    # lessons = ["abdullah_math1", "abdullah_math2", "omran_mila_math"]
+    # personal = ["lunch_prepare", "lunch_time"]
+    # others = []
 
-variables: list[Session] = []
-domains: dict[Session: list[struct_time]] = {}
+    variables: list[Session] = []
+    domains: dict[Session: list[struct_time]] = {}
 
-variables.extend(prayers.csp_variables)
-domains.update(prayers.csp_domains)
+    variables.extend(prayers.csp_variables)
+    domains.update(prayers.csp_domains)
 
-# the sessions needed to be fulfilled
-# Creating CSP framework
-csp: CSP = CSP(variables, domains)
+    # the sessions needed to be fulfilled
+    # Creating CSP framework
+    csp: CSP = CSP(variables, domains)
 
-# Applying constraints
-for session in prayers.csp_variables:
-    csp.add_constraint(NoTimeOverlapConstraint(session, 0)) # no overlap constraint
+    # Applying constraints
+    for session in prayers.csp_variables:
+        csp.add_constraint(NoTimeOverlapConstraint(session, 0)) # no tolerance
 
-# for session in work_meetings:
-#     pass #TODO:
-# for session in lessons:
-#     pass #TODO: assign the appropriate time for each lesson
-# for session in personal:
-#     pass #TODO: assign the appropriate time for each personal item
-# for session in others:
-#     pass #TODO
+    # for session in work_meetings:
+    #     pass #TODO:
+    # for session in lessons:
+    #     pass #TODO: assign the appropriate time for each lesson
+    # for session in personal:
+    #     pass #TODO: assign the appropriate time for each personal item
+    # for session in others:
+    #     pass #TODO
 
-# Find solution
-solution: Optional[dict[str, int]] = csp.backtracking_search()
-if solution is None:
-    print("No solution found!")
-else:
-    print(solution)
+    # Find solution
+    solution: Optional[dict[str, int]] = csp.backtracking_search()
+    if solution is None:
+        print("No solution found!")
+    else:
+        print(solution)
 
 

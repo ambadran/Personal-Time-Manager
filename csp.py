@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from sessions import Session
+from time import struct_time
 
 
 # Abstract base class
@@ -9,13 +11,13 @@ from abc import ABC, abstractmethod
 # Abstract base classes cannot be instantiated. They are inherited by the other subclasses.
 class Constraint(ABC):
     
-    def __init__(self, variables):
+    def __init__(self, variables: list[Session]):
         self.variables = variables
         
     # abstractmethod decorator makes sure the two rules of abstract base classes are met
     # it will raise a well documented TypeError on what rule of the two is broken if 
     @abstractmethod
-    def satisfied(self, assignment: dict) -> bool:
+    def satisfied(self, assignment: dict[Session: struct_time]) -> bool:
         """
         :param assignment: dict of variables keys and possible value from the domains dict for the dict value
         :return boolean: True if this particular constraint object is satisfied on the variables this object affect(in the variables attrib)
@@ -26,7 +28,7 @@ class Constraint(ABC):
 
 class CSP:
 
-    def __init__(self, variables, domains):
+    def __init__(self, variables: list[Session], domains: dict[Session: list[struct_time]]):
 
         self.variables = variables # varaibles that need to be assignment with all constraint satisfied domain value
         self.domains = domains # possible values for each variable
@@ -41,7 +43,7 @@ class CSP:
                 raise LookupError(f"Every variable must have a domain list assigned to it in the domain dict\n{variable} is not in domains")
 
 
-    def add_constraint(self, constraint):
+    def add_constraint(self, constraint: Constraint):
         """
         :param constraint: constraint object from the custom defined constraint class
 
@@ -55,7 +57,7 @@ class CSP:
             else:
                 self.constraints[variable].append(constraint) # adding the constraint
 
-    def consistent(self, variable, assignment):
+    def consistent(self, variable: Session, assignment: dict[Session: struct_time]):
         """
         :param assignment: dict of variables keys and possible value from the domains dict for the dict value
         :return boolean: checks that ALL constraints in a variable's constraint list(in constraints dict) is satisfied

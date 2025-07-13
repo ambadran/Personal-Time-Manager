@@ -28,8 +28,8 @@ class Student:
 @dataclass
 class Tuition(SessionDescriptor):
     pass
-
  
+
 class Tuitions(SessionGroup):
     pass
 
