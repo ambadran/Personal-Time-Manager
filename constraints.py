@@ -32,13 +32,16 @@ class NoTimeOverlapConstraint(Constraint):
             AND
             2- any of the others starts before self.session ends
             AND
-            3- not within tolerance
+            3- not in the allowed_to_overlap_session
+            AND
+            4- not within tolerance of next session starting time
         '''
         if self.session not in assignment.keys():
             # Skip entirely if this session is not yet assigned
             return True
 
 
+        ### Step 1:
         # Update overlapped_sessions list and duration if an allowed_to_overlap_session is present
         self.session.reset_overlap()
         for other_session, other_session_start_time in assignment.items():
@@ -47,9 +50,13 @@ class NoTimeOverlapConstraint(Constraint):
                 continue
 
             # test time overlap and if allowed overlap session and tolerance
-            if (other_session_start_time > assignment[self.session] and other_session_start_time < (assignment[self.session] + self.session.duration)) and (other_session in self.session.allowed_to_overlap_session) and ((other_session_start_time - assignment[self.session]) > self.tolerance):
+            if ((other_session_start_time > assignment[self.session] and \
+                other_session_start_time < (assignment[self.session] + self.session.duration)) and \
+                (other_session in self.session.allowed_to_overlap_session) and \
+                ((other_session_start_time - assignment[self.session]) > self.tolerance)):
                     self.session.add_overlap(other_session)
 
+        ### Step 2:
         # Actual test
         for other_session, other_session_start_time in assignment.items():
             # skip test if it's the session to be tested
@@ -60,7 +67,8 @@ class NoTimeOverlapConstraint(Constraint):
                 # skip if this is allowed overlapping
                 continue
 
-            if other_session_start_time > assignment[self.session] and other_session_start_time < (assignment[self.session] + self.session.duration):
+            if (other_session_start_time > assignment[self.session] and \
+                other_session_start_time < (assignment[self.session] + self.session.duration)):
                 return False
 
         return True

@@ -54,8 +54,6 @@ class Prayers(SessionGroup):
     PRAYER_CALC_METHOD = 2 # https://api.aladhan.com/v1/methods shows the index for each method
 
     def __init__(self, week_start_date: struct_time):
-        if week_start_date.tm_wday != 5:
-            raise ValueError("week_start_date must be a Saturday!")
         super().__init__(week_start_date)
 
         # creating the sessions

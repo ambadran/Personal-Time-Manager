@@ -5,10 +5,7 @@ This script defines the "variables" in the CSP framework which is time 'sessions
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TypeAlias
-from time import struct_time, strftime
-
-# custom types
-Minutes: TypeAlias = int
+from datetime import datetime, timedelta
 
 class SessionDescriptor(ABC):
     def __init__(self):
@@ -24,8 +21,8 @@ class Session:
     This is the Session Abstract Class
     '''
     def __init__(self, session_descriptor: SessionDescriptor, 
-                 base_duration: Minutes, 
-                 domain_values: list[struct_time],
+                 base_duration: timedelta, 
+                 domain_values: list[datetime],
                  allowed_to_overlap_session: list[Session] = []):
         '''
 
@@ -49,7 +46,7 @@ class Session:
         self.overlapped_sessions = []
 
     @property
-    def duration(self) -> Minutes:
+    def duration(self) -> timedelta:
         duration = self.base_duration
         for overlapped_session in self.overlapped_sessions:
             duration += overlapped_session.duration
@@ -67,14 +64,17 @@ class SessionGroup(ABC):
     '''
     This is session group class
     '''
-    def __init__(self, week_start_date: struct_time):
-        self.week_start_date: struct_time = week_start_date
+    WEEK_START_DAY = 5 # saturday
+    def __init__(self, week_start_date: datetime):
+        if week_start_date.weekday() != self.WEEK_START_DAY:
+            raise ValueError("week_start_date must be a Saturday!")
+        self.week_start_date: datetime = week_start_date
 
     @abstractmethod
     def csp_variables(self) -> list[Session]:
         pass
 
     @abstractmethod
-    def csp_domains(self) -> dict[Session: list[struct_time]]:
+    def csp_domains(self) -> dict[Session: list[datetime]]:
         pass
         

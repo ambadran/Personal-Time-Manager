@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from sessions import Session
-from time import struct_time
+from datetime import datetime, timedelta
 
 
 # Abstract base class
@@ -17,7 +17,7 @@ class Constraint(ABC):
     # abstractmethod decorator makes sure the two rules of abstract base classes are met
     # it will raise a well documented TypeError on what rule of the two is broken if 
     @abstractmethod
-    def satisfied(self, assignment: dict[Session: struct_time]) -> bool:
+    def satisfied(self, assignment: dict[Session: datetime]) -> bool:
         """
         :param assignment: dict of variables keys and possible value from the domains dict for the dict value
         :return boolean: True if this particular constraint object is satisfied on the variables this object affect(in the variables attrib)
@@ -28,7 +28,7 @@ class Constraint(ABC):
 
 class CSP:
 
-    def __init__(self, variables: list[Session], domains: dict[Session: list[struct_time]]):
+    def __init__(self, variables: list[Session], domains: dict[Session: list[datetime]]):
 
         self.variables = variables # varaibles that need to be assignment with all constraint satisfied domain value
         self.domains = domains # possible values for each variable
@@ -57,7 +57,7 @@ class CSP:
             else:
                 self.constraints[variable].append(constraint) # adding the constraint
 
-    def consistent(self, variable: Session, assignment: dict[Session: struct_time]):
+    def consistent(self, variable: Session, assignment: dict[Session: datetime]):
         """
         :param assignment: dict of variables keys and possible value from the domains dict for the dict value
         :return boolean: checks that ALL constraints in a variable's constraint list(in constraints dict) is satisfied
