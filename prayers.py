@@ -2,13 +2,11 @@
 This is the script that gets the latest prayer times
 '''
 import requests
-import time
 from datetime import datetime, timedelta, time
 import json
-from sessions import SessionGroup, Session, SessionDescriptor
 from enum import Enum, auto
 from dataclasses import dataclass
-from typing import Tuple
+from sessions import SessionGroup, Session, SessionDescriptor
 
 class PrayerType(Enum):
     FAJR = auto()
