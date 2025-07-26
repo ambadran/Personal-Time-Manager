@@ -112,5 +112,5 @@ def get_logs():
 if __name__ == '__main__':
     # Runs the Flask app on localhost, port 5000
     # The debug=True flag enables auto-reloading when you save the file.
-    app.run(debug=True, port=5000)
+    app.run(debug=True)
 
