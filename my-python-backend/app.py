@@ -8,12 +8,22 @@ import uuid
 app = Flask(__name__)
 CORS(app)
 
-# --- In-Memory Database Simulation ---
-# In a real application, this would be a proper database like PostgreSQL or MongoDB.
-db = {
-    "users": {},      # { "user_id": { "email": "...", "password": "...", "isFirstSignIn": True } }
-    "students": {}  # { "user_id": { "student_id": { ...student_data... } } }
-}
+# --- Persistent File-Based Database ---
+# We'll use JSON files to store data, which will persist on the server.
+USERS_FILE = 'users.json'
+STUDENTS_FILE = 'students.json'
+
+def load_data(file_path):
+    """Loads data from a JSON file."""
+    if not os.path.exists(file_path):
+        return {}
+    with open(file_path, 'r') as f:
+        return json.load(f)
+
+def save_data(data, file_path):
+    """Saves data to a JSON file."""
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
 
 # --- API Endpoints ---
 
@@ -23,6 +33,7 @@ def health_check():
 
 @app.route('/signup', methods=['POST'])
 def signup():
+    users = load_data(USERS_FILE)
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -30,15 +41,18 @@ def signup():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    # Check if user already exists
-    for user_id, user_data in db["users"].items():
+    for user_data in users.values():
         if user_data["email"] == email:
             return jsonify({"error": "User with this email already exists"}), 409
 
-    # Create new user
     new_user_id = str(uuid.uuid4())
-    db["users"][new_user_id] = {"email": email, "password": password, "isFirstSignIn": True}
-    db["students"][new_user_id] = {}
+    users[new_user_id] = {"email": email, "password": password, "isFirstSignIn": True}
+    save_data(users, USERS_FILE)
+
+    # Also initialize student data for this new user
+    students = load_data(STUDENTS_FILE)
+    students[new_user_id] = {}
+    save_data(students, STUDENTS_FILE)
 
     print(f"New user signed up: {email} (ID: {new_user_id})")
     
@@ -49,6 +63,7 @@ def signup():
 
 @app.route('/login', methods=['POST'])
 def login():
+    users = load_data(USERS_FILE)
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -56,8 +71,7 @@ def login():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    # Find user and check password
-    for user_id, user_data in db["users"].items():
+    for user_id, user_data in users.items():
         if user_data["email"] == email and user_data["password"] == password:
             print(f"User logged in: {email}")
             return jsonify({
@@ -69,12 +83,15 @@ def login():
 
 @app.route('/students', methods=['GET', 'POST', 'DELETE'])
 def handle_students():
+    users = load_data(USERS_FILE)
+    students = load_data(STUDENTS_FILE)
+    
     user_id = request.args.get('userId') if request.method == 'GET' else request.get_json().get('userId')
-    if not user_id or user_id not in db["users"]:
+    if not user_id or user_id not in users:
         return jsonify({"error": "Invalid or missing user ID"}), 401
 
     if request.method == 'GET':
-        user_students = list(db["students"].get(user_id, {}).values())
+        user_students = list(students.get(user_id, {}).values())
         return jsonify(user_students), 200
 
     if request.method == 'POST':
@@ -82,19 +99,23 @@ def handle_students():
         student_id = student_data.get('id', str(uuid.uuid4()))
         student_data['id'] = student_id
         
-        db["students"][user_id][student_id] = student_data
+        if user_id not in students:
+            students[user_id] = {}
+        students[user_id][student_id] = student_data
+        save_data(students, STUDENTS_FILE)
         
-        # Mark that the user is no longer a first-time signer-in
-        if db["users"][user_id]["isFirstSignIn"]:
-            db["users"][user_id]["isFirstSignIn"] = False
+        if users[user_id].get("isFirstSignIn", False):
+            users[user_id]["isFirstSignIn"] = False
+            save_data(users, USERS_FILE)
 
         print(f"Saved student '{student_data['basicInfo']['firstName']}' for user {user_id}")
         return jsonify({"message": "Student saved", "studentId": student_id}), 200
 
     if request.method == 'DELETE':
         student_id = request.get_json().get('studentId')
-        if student_id in db["students"].get(user_id, {}):
-            del db["students"][user_id][student_id]
+        if student_id in students.get(user_id, {}):
+            del students[user_id][student_id]
+            save_data(students, STUDENTS_FILE)
             print(f"Deleted student {student_id} for user {user_id}")
             return jsonify({"message": "Student deleted"}), 200
         return jsonify({"error": "Student not found"}), 404
