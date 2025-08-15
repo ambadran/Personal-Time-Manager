@@ -93,15 +93,3 @@ class CSP:
                     return result
         return None
 
-
-
-
-
-
-
-
-
-
-
-
-
