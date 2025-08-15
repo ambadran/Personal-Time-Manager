@@ -21,3 +21,7 @@ __pychache__
 *_autosave*
 *.~*
 ~$*
+.env
+.envrc
+.venv
+.python-version

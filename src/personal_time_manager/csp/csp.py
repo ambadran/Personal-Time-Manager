@@ -1,7 +1,9 @@
-from abc import ABC, abstractmethod
-from sessions import Session
-from datetime import datetime, timedelta
+'''
 
+'''
+from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+from personal_time_manager.sessions.base_session import Session
 
 # Abstract base class
 # This is a parent class meant a blue print to be inherited by other classes
