@@ -105,6 +105,7 @@ class Prayers(SessionGroup):
         returns the datetime of the time of a specific prayer within this week
         '''
         date_str, prayer_name = self.prayer_to_api_params(prayer)
+        print(date_str)
 
         params = {
             "latitude": self.LATITUDE,
@@ -114,13 +115,10 @@ class Prayers(SessionGroup):
         }
 
         try:
-            # response = requests.get(self.BASE_URL, params=params)
-            # response.raise_for_status()  # Raise exception for HTTP errors
-            # data: dict = response.json()
+            response = requests.get(self.BASE_URL, params=params)
+            response.raise_for_status()  # Raise exception for HTTP errors
+            data: dict = response.json()
             
-            # ONLY USED FOR TESTING to avoid doing all the HTTP Requests
-            from test_api import athan_api_data
-            data = athan_api_data[prayer.name]
             if data["code"] != 200 or "data" not in data:
                 raise ValueError("Invalid response from server")
                 
@@ -153,12 +151,4 @@ class Prayers(SessionGroup):
     @property
     def csp_domains(self) -> dict[Session: list[datetime]]:
         return {session: session.domain_values for session in self.csp_variables}
-
-# Example usage
-if __name__ == "__main__":
-    start_date = datetime(2025, 12, 6)  # Saturday
-    prayers = Prayers(start_date)
-    
-    for session in prayers.csp_variables:
-        print(f"{session.session_descriptor.name}: {session.domain_values[0].strftime('%Y-%m-%d %H:%M')}")
 
