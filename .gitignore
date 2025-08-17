@@ -24,4 +24,4 @@ __pychache__
 .env
 .envrc
 .venv
-.python-version
+*.egg-info/

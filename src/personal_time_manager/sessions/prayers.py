@@ -105,7 +105,6 @@ class Prayers(SessionGroup):
         returns the datetime of the time of a specific prayer within this week
         '''
         date_str, prayer_name = self.prayer_to_api_params(prayer)
-        print(date_str)
 
         params = {
             "latitude": self.LATITUDE,
@@ -131,7 +130,7 @@ class Prayers(SessionGroup):
             return datetime.combine(prayer_date.date(), time(hour, minute))
             
         except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
-            raise ValueError(f"Failed to get prayer time: {str(e)}")           
+            raise ValueError(f"Failed to get prayer time: {e}")           
 
     def get_prayer_domain_times(self, prayer: Prayer) -> list[datetime]:
         '''
