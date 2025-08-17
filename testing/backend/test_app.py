@@ -25,3 +25,11 @@ def test_root_endpoint_healthcheck(client):
     assert response.status_code == 200
     assert "application/json" in response.headers["Content-Type"]
 
+def test_export_date(client):
+    '''
+    Tests the export all data method
+    Extremely important to process the tuition.py
+
+    Must make sure structure is correct
+    '''
+    pass

@@ -2,14 +2,29 @@
 Testing prayers session management
 '''
 from typing import Any
+from datetime import datetime
 from unittest.mock import MagicMock
 import pytest
 from test_base_session import TEST_START_DATE
 from mock_prayers_html_response import athan_api_data
-from personal_time_manager.sessions.prayers import Prayers
+from personal_time_manager.sessions.prayers import Prayers, Prayer, PrayerType, WeekDay
 
 def test_actual_api_connection_response():
-    pass
+    '''
+    Test that API calls are working indeed, just one call is enough
+    Basically, we are testing self.get_prayer_time
+    '''
+    # I don't want to run the __init__
+    custom_prayers = Prayers.__new__(Prayers)
+
+    # manually setting the start_date so that the
+    custom_prayers.week_start_date = TEST_START_DATE
+
+    # now calling the .get_prayer_time for only one Prayer 
+    test_date_saturday_fajr_datetime = custom_prayers.get_prayer_time(Prayer(type=PrayerType.FAJR, day=WeekDay.SATURDAY))
+
+    # Make sure it did indeed return the right time :D
+    assert test_date_saturday_fajr_datetime == datetime(2025, 12, 6, 5, 14)
 
 @pytest.fixture
 def prayers(monkeypatch: pytest.MonkeyPatch) -> Prayers:

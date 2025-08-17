@@ -4,9 +4,9 @@ This is the script to read the json file storing all the data of the pupils rega
 from datetime import datetime, timedelta, time
 from enum import Enum, auto
 from dataclasses import dataclass, field
-import pickle
 from typing import Optional
-from sessions import SessionGroup, Session, SessionDescriptor
+from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
+from personal_time_manager.database.db_handler import DatabaseHandler
 
 class Subject(Enum):
     Maths = auto()
@@ -40,27 +40,11 @@ class Tuition(SessionDescriptor):
         return f"Tuition(({subject}) for ({self.students}) for ({duration}))"
 
 class Tuitions(SessionGroup):
-    PKL_TUITION_DOMAIN_DICT_FILE_NAME = "tuition_domain_dict.pkl"
 
     def __init__(self, week_start_date: datetime):
         super().__init__(week_start_date)
 
-    def get_tuition_list_from_pkl(self) -> list[Session]:
-        '''
-        Reads the local pkl file generated manually or from App that contains the list of all the wanted tuition in a week and the domain of each Tuition.
-        
-        Returns:
-            list[Session]: A list of Session objects containing tuition information and their domains.
-        '''
-        try:
-            with open(self.PKL_TUITION_DOMAIN_DICT_FILE_NAME, 'rb') as pkl_file:
-                tuition_list = pickle.load(pkl_file)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Error: File {self.PKL_TUITION_DOMAIN_DICT_FILE_NAME} not found.")
-        except Exception as e:
-            raise Exception(f"Error loading pickle file: {e}")
-
-        return tuition_list
+        # creating the sessions
 
     @property
     def csp_variables(self) -> list[Session]:

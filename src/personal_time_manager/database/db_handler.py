@@ -6,12 +6,15 @@ import json
 import uuid
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
 class DatabaseHandler:
     """
     Handles all interactions with the PostgreSQL database.
     """
     def __init__(self):
+        # Load environment variables from .env file before anything else
+        load_dotenv()
         self.database_url = os.environ.get('DATABASE_URL')
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable not set.")
