@@ -1,10 +1,17 @@
 '''
-This is the script that gets the latest prayer times
+* INPUTS to this Module *
+Prayer Times are acquired from online prayer api (in Prayers.BASE_URL)
+
+* OUTPUTS from this Module *
+This Module generates Inputs to CSP Framework
+    - CSP Session Variable list, all prayer sessions in a week
+    - CSP Domain Variable Dictionary, each possible start time of each prayer session variable
+
 '''
 import json
 import requests
 from enum import Enum, auto
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta, time
 from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
 
@@ -24,10 +31,12 @@ class WeekDay(Enum):
     THURSDAY = auto()
     FRIDAY = auto()
 
-@dataclass(frozen=True)
-class Prayer(SessionDescriptor):
+class Prayer(BaseModel, SessionDescriptor):
     type: PrayerType
     day: WeekDay
+
+    # Pydantic v2 config for immutability (equivalent to frozen=True)
+    model_config = ConfigDict(frozen=True)
     
     @property
     def name(self):
@@ -35,7 +44,6 @@ class Prayer(SessionDescriptor):
             return "JUMAH"
         return f"{self.type.name}_{self.day.name}"
 
-# Create all combinations programmatically
 class Prayers(SessionGroup):
     ALL_PRAYERS = tuple(Prayer(type=prayer, day=day) for prayer in PrayerType for day in WeekDay)
 

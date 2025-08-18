@@ -1,26 +1,39 @@
 '''
+This file defines all the `Constraint` classes the CSP framework needs to take into account.
 
+Constraints:
+    - NoTimeOverlapConstraint(Constraint)
 '''
 from datetime import datetime, timedelta
-from csp import Constraint, CSP
-from prayers import Prayers
-from sessions import Session
+from personal_time_manager.csp.csp import Constraint, CSP
+from personal_time_manager.sessions.prayers import Prayers
+from personal_time_manager.sessions.base_session import Session
 from typing import Optional
 
 class NoTimeOverlapConstraint(Constraint):
     '''
     Constraint class to prevent time slots from overlapping
-    Argument to allow overlap for specific variables (for example prayer in middle of lesson)
 
+    There is an Argument to allow overlap for specific variables (for example prayer in middle of lesson)
 
-    Overlap is defined as following:
-    session A overlap session B if session A starts after session B and before the duration needed for session B
+    Testing for overlap of specific self.session with the other assignment dictionary
+    1- update overlapped_sessions every run, to account for possible change in previous trial
+    2- Tests:
+        1- any of the others start after self.session starts
+        AND
+        2- any of the others starts before self.session ends
+        AND
+        3- not in the allowed_to_overlap_session
+        AND
+        4- not within tolerance of next session starting time
+
+    Session Starts -> datetime in assignment dictionary
+    Session Ends -> datetime in assignment dictionary + session.duration
     '''
     def __init__(self, variable: Session, tolerance: timedelta):
         '''
-        Variable of the session that the overlap prevention constraint applies to
-        Takes into account the .
-        param tolerance: an integer of the amount of minutes where even if an exception session starts after the start but within specific amount of minutes <tolerance> will be rejected (not satisfied)
+        :param variable: the `Session` variable that this Constraint applies to
+        :param tolerance: `timedelta` variable of the amount of time where even if an exception session starts after the start but within specific amount of minutes <tolerance> will be rejected (not satisfied)
         '''
         super().__init__([variable])
         self.session = variable
@@ -28,9 +41,9 @@ class NoTimeOverlapConstraint(Constraint):
 
     def satisfied(self, assignment: dict[Session: datetime]) -> bool:
         '''
-        actual testing for overlap of specific self.session with the other assignment dictionary
+        Testing for overlap of specific self.session with the other assignment dictionary
         1- update overlapped_sessions every run, to account for possible change in previous trial
-        2- test 
+        2- Tests:
             1- any of the others start after self.session starts
             AND
             2- any of the others starts before self.session ends
@@ -38,6 +51,9 @@ class NoTimeOverlapConstraint(Constraint):
             3- not in the allowed_to_overlap_session
             AND
             4- not within tolerance of next session starting time
+
+        Session Starts -> datetime in assignment dictionary
+        Session Ends -> datetime in assignment dictionary + session.duration
         '''
         if self.session not in assignment.keys():
             # Skip entirely if this session is not yet assigned

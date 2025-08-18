@@ -4,4 +4,9 @@
 from datetime import datetime
 import pytest
 
-TEST_START_DATE = datetime(2025, 12, 6)  # Saturday
+
+def test_session_get_duration():
+    '''
+    getting duration of a session can be challenging due to multitude of scenarios
+    '''
+    pass

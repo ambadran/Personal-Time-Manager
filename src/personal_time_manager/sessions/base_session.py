@@ -1,6 +1,9 @@
 '''
 Abstract class of sessions
-This script defines the "variables" in the CSP framework which is time 'sessions' of different types and need different constraints and has specific time domains
+This script defines:
+    - Session -> The CSP Variable Type
+    - SessionDescriptor -> to add more custom information for different types of Activities (Sessions)
+    - SessionGroup -> This is the class the is required to return the CSP Variable list and CSP Domain Dictionary.
 '''
 from __future__ import annotations
 from abc import ABC, abstractmethod
@@ -10,6 +13,10 @@ from datetime import datetime, timedelta
 class SessionDescriptor(ABC):
     """
     Abstract base class for session metadata (e.g., name, type).
+    This is made so that the Main Session class can accomodate any type or idea of sessions. 
+    The different types of sessions will need different attributes to describe and process them on their own.
+
+    The only shared attribute that has to be in all is 'name' (for now)
     """
     def __init__(self):
         pass
@@ -21,6 +28,8 @@ class SessionDescriptor(ABC):
 
 class Session:
     """
+    !!! This is the CSP variable type !!!
+
     Represents a schedulable session with duration and overlap rules.
     Durations are stored and manipulated as `timedelta` objects.
     """
@@ -36,7 +45,6 @@ class Session:
         self.domain_values = domain_values
         self.allowed_to_overlap_session = allowed_to_overlap_session or []
         self.overlapped_sessions: list[Session] = []
-        allowed_to_overlap_session: list[Session] = []
 
     def add_overlap(self, overlapped_session: Session) -> None:
         """
@@ -79,6 +87,12 @@ class Session:
 class SessionGroup(ABC):
     """
     Abstract base class for a group of related sessions.
+
+    This is the class that is supposed to generate:
+    - list[Session] -> CSP Variables list
+    - dict[Session: list[datetime]] -> CSP Domain Dictionary
+
+    for a specific group of sessions
     """
     WEEK_START_DAY = 5 # saturday
     def __init__(self, week_start_date: datetime):

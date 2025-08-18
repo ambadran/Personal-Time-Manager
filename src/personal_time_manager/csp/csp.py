@@ -1,18 +1,44 @@
 '''
+**Constraint Satisfactory Problem Framework**
+(As defined in my favourite programming book: Classic Computer Science Problems in Python by David Kopec)
 
+* INPUTS *
+CSP Variable Type: `Session`
+CSP Domain Type: `list[datetime]`
+CSP Constraint class(es): `NoTimeOverlapConstraint`
+
+CSP Variable Type: `Session`
+    - Describes what a time slot (session) hold in terms of the activity being done including the duration needed
+    - The Session class is designed to accomodate any type of activity (like google calendar-defined meeting, tuitions, prayers, etc..)
+
+CSP Domain Type: `list[datetime]`
+    - list of all the MINUTES(in the form of datetime) that a specific session can start in.
+    - *NOT INCLUDING the time that the session can theoritically start in but not be finished if started then
+    - datetime was choosen as it is a standard Python represetation of absolute times
+    - also the datetime has a very useful timedelta type that is used to represetation the duration in the Session
+
+CSP Constraint class(es): `NoTimeOverlapConstraint`
+    - While the nature of the CSP framework covers the fact that all session can only be done within a defined period of time (domain)
+    - Another custom designed Constraint is needed to achieve the Perfect TimeTable
+    - Must define how some sessions can't overlap with anything, some can overlap and break a session in half(or more).
+
+The CSP Framework inputs all CSP Variables and domain for a Week (Starts Saturday, Ends Friday)
+
+* OUTPUTS *
+
+CSP Assignment Type: `dict[Session: datetime]`
+    - Contains ALL `Session` variables in a week as keys
+    - Contains assigned exact `datetime` for each `Session`
+    - The PERFECT Timetable! :D
 '''
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from personal_time_manager.sessions.base_session import Session
 
-# Abstract base class
-# This is a parent class meant a blue print to be inherited by other classes
-# it makes sure that rule 1 of abstract base classes is met
-# Subclasses inherited from a specific base class must implement all the methods and properties defined in the abstract base class.
-# While Rule two is
-# Abstract base classes cannot be instantiated. They are inherited by the other subclasses.
 class Constraint(ABC):
-    
+    '''
+    Abstract Class for All custom Constraint class
+    '''
     def __init__(self, variables: list[Session]):
         self.variables = variables
         
@@ -29,7 +55,12 @@ class Constraint(ABC):
 
 
 class CSP:
+    '''
+    Constraint Satisfactory Problem 
 
+    CSP Variable Type: `Session`
+    CSP Domain Type: `list[datetime]`
+    '''
     def __init__(self, variables: list[Session], domains: dict[Session: list[datetime]]):
 
         self.variables = variables # varaibles that need to be assignment with all constraint satisfied domain value
