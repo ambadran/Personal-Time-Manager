@@ -88,8 +88,11 @@ def get_timetable():
 @main_routes.route('/logs', methods=['GET'])
 def get_logs():
     student_id = request.args.get('student_id')
+
     if not student_id: return jsonify({"error": "student_id is required"}), 400
-    mock_logs = { "summary": { "unpaid_count": 3, "paid_count": 2, "total_due": 0.00 }, "detailed_logs": [ { "subject": 'Math', "date": '2025-07-21', "time_start": '10:00', "time_end": '11:30', "duration": '1.5h', "status": 'Paid' }, { "subject": 'Physics', "date": '2025-07-22', "time_start": '19:00', "time_end": '20:00', "duration": '1.0h', "status": 'Unpaid' } ] }
+    mock_logs = { "summary": { "unpaid_count": 3, "paid_count": 2, "total_due": 0.00 }, 
+                 "detailed_logs": [ { "subject": 'Math', "date": '2025-07-21', "time_start": '10:00', "time_end": '11:30', "duration": '1.5h', "status": 'Paid', "attendees": ["John Doe", "Jane Smith"] },
+                                   { "subject": 'Physics', "date": '2025-07-22', "time_start": '19:00', "time_end": '20:00', "duration": '1.0h', "status": 'Unpaid', "attendees": ["John Doe", "Jane Smith"] } ] }
     return jsonify(mock_logs)
 
 @main_routes.route('/export', methods=['GET'])
