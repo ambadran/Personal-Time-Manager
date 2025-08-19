@@ -45,7 +45,13 @@ class Prayer(BaseModel, SessionDescriptor):
         return f"{self.type.name}_{self.day.name}"
 
 class Prayers(SessionGroup):
-    ALL_PRAYERS = tuple(Prayer(type=prayer, day=day) for prayer in PrayerType for day in WeekDay)
+    '''
+
+    '''
+    # This is a tuple of session descriptor, it's basically what will be used
+    # to create the list of CSP variables, it defined as class Variable
+    # because by nature, it will never change ever
+    ALL_PRAYERS: tuple[Prayer] = tuple(Prayer(type=prayer, day=day) for prayer in PrayerType for day in WeekDay)
 
     EQAMA_TIMES: dict[PrayerType: timedelta] = {
                    PrayerType.FAJR: timedelta(minutes=20), 
