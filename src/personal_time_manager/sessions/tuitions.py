@@ -36,12 +36,16 @@ class StudentStatus(Enum): # ;)
     HIM = auto()
 
 class Student(BaseModel):
+    id: str
     first_name: str
     family_name: str
     grade: int
     cost_per_hour: float
     status: StudentStatus
     availability: list[datetime]
+
+    def __eq__(self) -> bool:
+        return self.id == self.id
     
     def __repr__(self) -> str:
         return f"Student(\"{self.first_name} {self.family_name}\", grade={self.grade})"
@@ -87,8 +91,9 @@ class Tuitions(SessionGroup):
 
         # Step 2: create the Student instance for each student dict
         student_list: list[Student] = []
-        for raw_student_dict in raw_student_dict_list:
+for raw_student_dict in raw_student_dict_list:
 
+            id = raw_student_dict['id']
             first_name = raw_student_dict['basicInfo']['firstName']
             family_name = raw_student_dict['basicInfo']['lastName']
             grade = raw_student_dict['basicInfo']['grade']
@@ -97,7 +102,8 @@ class Tuitions(SessionGroup):
             #TODO: should get this from future admin frontend -> admin database
             status = StudentStatus.NONE 
             availability = self._generate_availability(raw_student_dict['availability'])
-            student_list.append(Student(first_name=first_name,
+            student_list.append(Student(id=id,
+                                        first_name=first_name,
                                         family_name=family_name,
                                         grade=grade,
                                         cost_per_hour=cost_per_hour,
@@ -169,9 +175,26 @@ class Tuitions(SessionGroup):
                 
         return free_minutes
 
-    def get_tuition_list(self):
-        '''return list of all tuitions to be given in a week'''
-        ...
+    def get_tuition_list(self) -> list[Tuition]:
+        '''
+        this method REQUIRES self.student_list to be defined properly
+        return list of all tuitions to be given in a week 
+        '''
+        # Step 1: get each student dictionary
+        raw_student_dict_list: list[dict] = []
+        for user in self.raw_data:
+            for student_dict in user['students']:
+                raw_student_dict_list.append(student_dict)
+
+        # Step 2: create the Student instance for each student dict
+        tuition_list: list[Tuition] = []
+        for raw_student_dict in raw_student_dict_list:
+
+            for subject in raw_student_dict['subjects']:
+                #TODO: TEST new DB code to make sure it doesn't cause any frontend/backend bugs and output the correct sharedStudent list with the shared student in both lists
+                pass
+
+        return tuition_list
 
     @property
     def csp_variables(self) -> list[Session]:

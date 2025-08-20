@@ -13,6 +13,7 @@ def test_tuition_db_access():
     '''
     test_db_handler = Tuitions.__new__(Tuitions)
     raw_data = test_db_handler.get_latest_db_data()
+    pprint(raw_data)
     assert len(raw_data) > 0  # make sure there is data to test
 
     # test the data structure to be as expected so that the Tuitions processing does what it does to expected data structure
@@ -164,6 +165,14 @@ def test_get_student_list(tuitions: Tuitions):
     #TODO: put pytest.mark.parametrize test cases
     '''
     print(tuitions.student_list)
+
+def test_get_tuition_list(tuitions: Tuitions):
+    '''
+    #TODO: put pytest.mark.parametrize test cases
+    '''
+    pprint(tuitions.raw_data)
+    pprint(tuitions.tuition_list)
+
 
 def test_tuition_class(tuitions: Tuitions):
     '''
