@@ -17,9 +17,6 @@ from personal_time_manager.sessions.base_session import Session, SessionGroup, S
 from personal_time_manager.database.db_handler import DatabaseHandler
 from psycopg2.extras import RealDictRow
 
-# temp
-from pprint import pprint
-
 class Subject(Enum):
     Maths = auto()
     Physics = auto()
@@ -91,7 +88,7 @@ class Tuitions(SessionGroup):
 
         # Step 2: create the Student instance for each student dict
         student_list: list[Student] = []
-for raw_student_dict in raw_student_dict_list:
+        for raw_student_dict in raw_student_dict_list:
 
             id = raw_student_dict['id']
             first_name = raw_student_dict['basicInfo']['firstName']
@@ -191,7 +188,6 @@ for raw_student_dict in raw_student_dict_list:
         for raw_student_dict in raw_student_dict_list:
 
             for subject in raw_student_dict['subjects']:
-                #TODO: TEST new DB code to make sure it doesn't cause any frontend/backend bugs and output the correct sharedStudent list with the shared student in both lists
                 pass
 
         return tuition_list
