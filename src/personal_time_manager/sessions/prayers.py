@@ -73,10 +73,12 @@ class Prayers(SessionGroup):
         super().__init__(week_start_date)
 
         # creating the sessions
-        self._csp_variables = [
-            Session(prayer, self.PRAYER_DURATION, self.get_prayer_domain_times(prayer))
-            for prayer in self.ALL_PRAYERS
-        ]
+        self._csp_variables: list[Session] = []
+        for prayer in self.ALL_PRAYERS:
+            self._csp_variables.append(
+                Session(prayer, 
+                        self.PRAYER_DURATION, 
+                        self.get_prayer_domain_times(prayer)))
 
     def get_prayer_eqama(self, prayer: Prayer) -> timedelta:
         '''

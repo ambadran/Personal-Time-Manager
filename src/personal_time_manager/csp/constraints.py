@@ -69,11 +69,14 @@ class NoTimeOverlapConstraint(Constraint):
                 continue
 
             # test time overlap and if allowed overlap session and tolerance
-            if ((other_session_start_time > assignment[self.session] and \
+            if ((other_session_start_time >= assignment[self.session] and \
                 other_session_start_time < (assignment[self.session] + self.session.duration)) and \
                 (other_session in self.session.allowed_to_overlap_session) and \
                 ((other_session_start_time - assignment[self.session]) > self.tolerance)):
                     self.session.add_overlap(other_session)
+
+        print(other_session)
+        print()
 
         ### Step 2:
         # Actual test
@@ -86,7 +89,7 @@ class NoTimeOverlapConstraint(Constraint):
                 # skip if this is allowed overlapping
                 continue
 
-            if (other_session_start_time > assignment[self.session] and \
+            if (other_session_start_time >= assignment[self.session] and \
                 other_session_start_time < (assignment[self.session] + self.session.duration)):
                 return False
 

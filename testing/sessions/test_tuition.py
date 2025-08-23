@@ -100,14 +100,17 @@ FULLY_BUSY_SCHEDULE = {
         ),
         (
             "Overnight interval spanning end-of-week",
-            "2025-11-22",
-            {'friday': [{'start': '23:00', 'end': '01:00'}]}, # Ends on Saturday morning
-            10080 - 120, # Week minus 2 hours
+            "2025-11-22", # Week starts on Saturday, Nov 22
+            {'friday': [{'start': '23:00', 'end': '01:00'}]},
+            9960, # Correct total free minutes
             [
-                ("2025-11-28 22:59", True),  # Before event starts
-                ("2025-11-28 23:30", False), # During the event on Friday
-                ("2025-11-29 00:30", False), # During the event on Saturday
-                ("2025-11-29 01:00", True),  # After the event ends
+                # Check Friday, Nov 28 (end of the week)
+                ("2025-11-28 22:59", True),
+                ("2025-11-28 23:30", False),
+                
+                # **FIX**: Check Saturday, Nov 22 (start of the week), NOT Nov 29
+                ("2025-11-22 00:30", False), # This time is now busy due to the wrap-around
+                ("2025-11-22 01:00", True)   # This is the first free minute on Saturday
             ]
         ),
         (
@@ -170,8 +173,12 @@ def test_get_tuition_list(tuitions: Tuitions):
     '''
     #TODO: put pytest.mark.parametrize test cases
     '''
-    pprint(tuitions.raw_data)
-    pprint(tuitions.tuition_list)
+    # pprint(tuitions.raw_data)  # get raw data to save in the mock
+    for tuition in tuitions.tuition_list:
+        print(f"{tuition}\t{repr(tuition)}")
+    # print(tuitions.student_list[0])
+    # for time in tuitions.student_list[0].availability:
+    #     print(time)
 
 
 def test_tuition_class(tuitions: Tuitions):
@@ -188,7 +195,7 @@ def test_tuition_class(tuitions: Tuitions):
     # pprint(tuitions.raw_data[0]['students'][0])
 
     for session in tuitions.csp_variables:
-        print(f"{session.session_descriptor.name}: {session.domain_values[0].strftime('%Y-%m-%d %H:%M')}")
+        print(f"{session.session_descriptor.name}, Domain len: {len(session.domain_values)}, Example: ({session.domain_values[0].strftime('%Y-%m-%d %H:%M')}, {session.domain_values[1].strftime('%Y-%m-%d %H:%M')})")
 
 
 
