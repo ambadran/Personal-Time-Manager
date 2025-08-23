@@ -78,11 +78,7 @@ class Session:
         return f"Session(name={self.session_descriptor.name}, duration={self.duration})"
 
     def __str__(self) -> str:
-        return (
-            f"{self.session_descriptor.name}\n"
-            f"Duration: {self.duration}\n"
-            f"Available slots: {len(self.domain_values)}"
-        )
+        return f"{self.session_descriptor.name}, Duration: {self.duration} Available slots: {len(self.domain_values)}"
 
 class SessionGroup(ABC):
     """

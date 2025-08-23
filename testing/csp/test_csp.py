@@ -10,6 +10,13 @@ from personal_time_manager.sessions.base_session import Session
 from personal_time_manager.sessions.prayers import Prayers
 from personal_time_manager.sessions.tuitions import Tuitions
 
+def timedelta_to_hhmm(td: timedelta) -> str:
+    """Convert timedelta to HH:MM format"""
+    total_seconds = td.total_seconds()
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    return f"{hours:02d}:{minutes:02d}"
+
 def test_csp_complete_workflow(prayers: Prayers, tuitions: Tuitions):
     '''
     Testing the complete workflow by bringing mock sessions of all defined types and making sure the whole algorithm 
@@ -20,6 +27,9 @@ def test_csp_complete_workflow(prayers: Prayers, tuitions: Tuitions):
     if successful will visualize the timetable clearly
     use
     pytest -rA to make the stdout is shown
+
+
+    first test case: no overlapped sessions, 
     '''
     # Step 1: Create the CSP Variable list
     variables: list[Session] = []
@@ -52,8 +62,9 @@ def test_csp_complete_workflow(prayers: Prayers, tuitions: Tuitions):
         for session, start in solution.items():
             rows.append({
                 "Name": session.session_descriptor.name,
-                "Start": start.strftime("%Y-%m-%d %H:%M"),
-                "Duration (min)": session.base_duration
+                "Start": start.strftime("%a %H:%M"),
+                "End": (start+session.duration).strftime("%H:%M"),
+                "Duration (min)": timedelta_to_hhmm(session.duration)
             })
 
         # Turn it into a DataFrame

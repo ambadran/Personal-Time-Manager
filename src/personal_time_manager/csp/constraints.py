@@ -10,6 +10,9 @@ from personal_time_manager.sessions.prayers import Prayers
 from personal_time_manager.sessions.base_session import Session
 from typing import Optional
 
+#temp
+from pprint import pprint
+
 class NoTimeOverlapConstraint(Constraint):
     '''
     Constraint class to prevent time slots from overlapping
@@ -59,7 +62,6 @@ class NoTimeOverlapConstraint(Constraint):
             # Skip entirely if this session is not yet assigned
             return True
 
-
         ### Step 1:
         # Update overlapped_sessions list and duration if an allowed_to_overlap_session is present
         self.session.reset_overlap()
@@ -69,17 +71,21 @@ class NoTimeOverlapConstraint(Constraint):
                 continue
 
             # test time overlap and if allowed overlap session and tolerance
-            if ((other_session_start_time >= assignment[self.session] and \
-                other_session_start_time < (assignment[self.session] + self.session.duration)) and \
-                (other_session in self.session.allowed_to_overlap_session) and \
+            if (
+                (((other_session_start_time >= assignment[self.session]) and \
+                (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
+                    or \
+                ((assignment[self.session] >= other_session_start_time) and \
+                (assignment[self.session] <= (other_session_start_time + other_session.duration))))
+                and \
+                (other_session in self.session.allowed_to_overlap_session) \
+                and \
                 ((other_session_start_time - assignment[self.session]) > self.tolerance)):
                     self.session.add_overlap(other_session)
 
-        print(other_session)
-        print()
-
         ### Step 2:
         # Actual test
+        test_var = False
         for other_session, other_session_start_time in assignment.items():
             # skip test if it's the session to be tested
             if other_session == self.session:
@@ -89,8 +95,14 @@ class NoTimeOverlapConstraint(Constraint):
                 # skip if this is allowed overlapping
                 continue
 
-            if (other_session_start_time >= assignment[self.session] and \
-                other_session_start_time < (assignment[self.session] + self.session.duration)):
+
+            if (
+                ((other_session_start_time >= assignment[self.session]) and \
+                (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
+                or \
+                ((assignment[self.session] >= other_session_start_time) and \
+                (assignment[self.session] <= (other_session_start_time + other_session.duration)))
+                ):
                 return False
 
         return True
