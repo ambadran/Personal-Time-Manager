@@ -36,7 +36,6 @@ class Subject(Enum):
     def __eq__(self, other: Subject) -> bool:
         return self.name == other.name
 
-
     @classmethod
     def from_string(cls, json_raw_string: str) -> Subject:
         for subject in cls:
