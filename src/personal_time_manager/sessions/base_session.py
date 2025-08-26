@@ -7,8 +7,14 @@ This script defines:
 '''
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import TypeAlias
+from enum import Enum
+from typing import Optional
 from datetime import datetime, timedelta
+
+class SessionPriority(Enum):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
 
 class SessionDescriptor(ABC):
     """
@@ -38,11 +44,13 @@ class Session:
          session_descriptor: SessionDescriptor, 
          base_duration: timedelta, 
          domain_values: list[datetime],
-         allowed_to_overlap_session: Optional[List["Session"]] = None
+         priority: SessionPriority,
+         allowed_to_overlap_session: Optional[list[Session]] = None
     ):
         self.session_descriptor = session_descriptor
         self.base_duration = base_duration
         self.domain_values = domain_values
+        # self.alternative_durations = Optional[list[timedelta]] #TODO:
         self.allowed_to_overlap_session = allowed_to_overlap_session or []
         self.overlapped_sessions: list[Session] = []
 

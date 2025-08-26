@@ -60,6 +60,7 @@ class CSP:
 
     CSP Variable Type: `Session`
     CSP Domain Type: `list[datetime]`
+    # TODO: how do I incorporate Session CSP variables with flexible (a range of) durations?
     '''
     def __init__(self, variables: list[Session], domains: dict[Session: list[datetime]]):
 

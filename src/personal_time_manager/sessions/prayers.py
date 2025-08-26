@@ -13,7 +13,7 @@ import requests
 from enum import Enum, auto
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta, time
-from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
+from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor, SessionPriority
 
 class PrayerType(Enum):
     FAJR = auto()
@@ -76,9 +76,11 @@ class Prayers(SessionGroup):
         self._csp_variables: list[Session] = []
         for prayer in self.ALL_PRAYERS:
             self._csp_variables.append(
-                Session(prayer, 
-                        self.PRAYER_DURATION, 
-                        self.get_prayer_domain_times(prayer)))
+                Session(
+                    session_descriptor=prayer, 
+                    base_duration=self.PRAYER_DURATION, 
+                    domain_values=self.get_prayer_domain_times(prayer),
+                    priority=SessionPriority.HIGH))
 
     def get_prayer_eqama(self, prayer: Prayer) -> timedelta:
         '''

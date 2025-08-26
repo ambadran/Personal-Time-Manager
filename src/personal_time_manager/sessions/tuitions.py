@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, time
 from enum import Enum, auto
 from pydantic import BaseModel
 from typing import Optional
-from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
+from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor, SessionPriority
 from personal_time_manager.database.db_handler import DatabaseHandler
 from psycopg2.extras import RealDictRow
 
@@ -120,10 +120,12 @@ class Tuitions(SessionGroup):
         # Step 3: Create CSP variable list
         self._csp_variables: list[Session] = []
         for tuition in self.tuition_list:
-            self._csp_variables.append(Session(
-                    tuition, 
-                    tuition.duration, 
-                    self.get_domain_times_for_tuition(tuition)))
+            self._csp_variables.append(
+                Session(
+                    session_descriptor=tuition, 
+                    base_duration=tuition.duration, 
+                    domain_values=self.get_domain_times_for_tuition(tuition),
+                    priority=SessionPriority.HIGH))
 
     def get_latest_db_data(self) -> list[RealDictRow]:
         '''return all raw data from database'''
