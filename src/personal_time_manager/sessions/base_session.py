@@ -10,11 +10,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional
 from datetime import datetime, timedelta
-
-class SessionPriority(Enum):
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
+from personal_time_manager.database.db_handler import DatabaseHandler
 
 class SessionDescriptor(ABC):
     """
@@ -25,12 +21,29 @@ class SessionDescriptor(ABC):
     The only shared attribute that has to be in all is 'name' (for now)
     """
     def __init__(self):
-        pass
+        #TODO: make sure ALL SessionDescriptor do super().__init__() !!!!!!
+        self.priority = self.get_priority()
+
+    def get_priority(self) -> int:
+        '''
+        # find priority from db
+        # init db, get db priority json data, parse json, 
+        class.__name__ of SessionDescriptor to int priority value
+        '''
+        ...
 
     @property
     @abstractmethod
     def name(self) -> str:
         pass
+
+class SessionTime:
+    '''
+    !!! This is the CSP Domain type !!!
+
+
+    '''
+    pass
 
 class Session:
     """
@@ -44,7 +57,6 @@ class Session:
          session_descriptor: SessionDescriptor, 
          base_duration: timedelta, 
          domain_values: list[datetime],
-         priority: SessionPriority,
          allowed_to_overlap_session: Optional[list[Session]] = None
     ):
         self.session_descriptor = session_descriptor
@@ -53,6 +65,9 @@ class Session:
         # self.alternative_durations = Optional[list[timedelta]] #TODO:
         self.allowed_to_overlap_session = allowed_to_overlap_session or []
         self.overlapped_sessions: list[Session] = []
+
+        self.priority = session_descriptor.priority
+
 
     def add_overlap(self, overlapped_session: Session) -> None:
         """
