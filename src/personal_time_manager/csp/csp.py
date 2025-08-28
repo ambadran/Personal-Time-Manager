@@ -8,14 +8,15 @@ CSP Domain Type: `list[datetime]`
 CSP Constraint class(es): `NoTimeOverlapConstraint`
 
 CSP Variable Type: `Session`
-    - Describes what a time slot (session) hold in terms of the activity being done including the duration needed
+    - Describes what a time slot (session) hold in terms of the activity being done including the priority
     - The Session class is designed to accomodate any type of activity (like google calendar-defined meeting, tuitions, prayers, etc..)
 
-CSP Domain Type: `list[datetime]`
-    - list of all the MINUTES(in the form of datetime) that a specific session can start in.
-    - *NOT INCLUDING the time that the session can theoritically start in but not be finished if started then
-    - datetime was choosen as it is a standard Python represetation of absolute times
-    - also the datetime has a very useful timedelta type that is used to represetation the duration in the Session
+CSP Domain Type: `list[SessionTime]`
+    - list of all the SessionTime objects that a specific session can be assigned to
+    - SessionTime contains all three needed data about an assigned time to a session:
+        - start_time
+        - end_time
+        - duration
 
 CSP Constraint class(es): `NoTimeOverlapConstraint`
     - While the nature of the CSP framework covers the fact that all session can only be done within a defined period of time (domain)
@@ -26,14 +27,14 @@ The CSP Framework inputs all CSP Variables and domain for a Week (Starts Saturda
 
 * OUTPUTS *
 
-CSP Assignment Type: `dict[Session: datetime]`
+CSP Assignment Type: `dict[Session: SessionTime]`
     - Contains ALL `Session` variables in a week as keys
-    - Contains assigned exact `datetime` for each `Session`
+    - Contains the correct `SessionTime` value for each key
     - The PERFECT Timetable! :D
 '''
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from personal_time_manager.sessions.base_session import Session
+from personal_time_manager.sessions.base_session import Session, SessionTime
 
 class Constraint(ABC):
     '''
@@ -45,7 +46,7 @@ class Constraint(ABC):
     # abstractmethod decorator makes sure the two rules of abstract base classes are met
     # it will raise a well documented TypeError on what rule of the two is broken if 
     @abstractmethod
-    def satisfied(self, assignment: dict[Session: datetime]) -> bool:
+    def satisfied(self, assignment: dict[Session: SessionTime]) -> bool:
         """
         :param assignment: dict of variables keys and possible value from the domains dict for the dict value
         :return boolean: True if this particular constraint object is satisfied on the variables this object affect(in the variables attrib)
@@ -59,10 +60,9 @@ class CSP:
     Constraint Satisfactory Problem 
 
     CSP Variable Type: `Session`
-    CSP Domain Type: `list[datetime]`
-    # TODO: how do I incorporate Session CSP variables with flexible (a range of) durations?
+    CSP Domain Type: `list[SessionTime]`
     '''
-    def __init__(self, variables: list[Session], domains: dict[Session: list[datetime]]):
+    def __init__(self, variables: list[Session], domains: dict[Session: list[SessionTime]]):
 
         self.variables = variables # varaibles that need to be assignment with all constraint satisfied domain value
         self.domains = domains # possible values for each variable
@@ -91,7 +91,7 @@ class CSP:
             else:
                 self.constraints[variable].append(constraint) # adding the constraint
 
-    def consistent(self, variable: Session, assignment: dict[Session: datetime]):
+    def consistent(self, variable: Session, assignment: dict[Session: SessionTime]):
         """
         :param assignment: dict of variables keys and possible value from the domains dict for the dict value
         :return boolean: checks that ALL constraints in a variable's constraint list(in constraints dict) is satisfied

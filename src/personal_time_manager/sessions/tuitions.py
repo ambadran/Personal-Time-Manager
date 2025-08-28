@@ -320,7 +320,8 @@ class Tuitions(SessionGroup):
 
     @property
     def csp_domains(self) -> dict[Session: list[datetime]]:
-        return {session: session.domain_values for session in self.csp_variables}
+        #TODO: make a ._csp_domains like .csp_variables
+        # return {session: session.domain_values for session in self.csp_variables}
 
 
 

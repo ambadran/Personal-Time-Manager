@@ -7,7 +7,7 @@ Constraints:
 from datetime import datetime, timedelta
 from personal_time_manager.csp.csp import Constraint, CSP
 from personal_time_manager.sessions.prayers import Prayers
-from personal_time_manager.sessions.base_session import Session
+from personal_time_manager.sessions.base_session import Session, SessionTime
 from typing import Optional
 
 #temp
@@ -42,7 +42,7 @@ class NoTimeOverlapConstraint(Constraint):
         self.session = variable
         self.tolerance = tolerance
 
-    def satisfied(self, assignment: dict[Session: datetime]) -> bool:
+    def satisfied(self, assignment: dict[Session: SessionTime]) -> bool:
         '''
         Testing for overlap of specific self.session with the other assignment dictionary
         1- update overlapped_sessions every run, to account for possible change in previous trial
@@ -63,47 +63,50 @@ class NoTimeOverlapConstraint(Constraint):
             return True
 
         ### Step 1:
+        #TODO: re-implement using new CSP implementation
+        #TODO: the main challenge is to incorporate overlapped_sessions features again with new domain type definition
         # Update overlapped_sessions list and duration if an allowed_to_overlap_session is present
-        self.session.reset_overlap()
-        for other_session, other_session_start_time in assignment.items():
-            # skip test if it's the session to be tested
-            if other_session == self.session:
-                continue
+        # self.session.reset_overlap()
+        # for other_session, other_session_start_time in assignment.items():
+        #     # skip test if it's the session to be tested
+        #     if other_session == self.session:
+        #         continue
 
-            # test time overlap and if allowed overlap session and tolerance
-            if (
-                (((other_session_start_time >= assignment[self.session]) and \
-                (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
-                    or \
-                ((assignment[self.session] >= other_session_start_time) and \
-                (assignment[self.session] <= (other_session_start_time + other_session.duration))))
-                and \
-                (other_session in self.session.allowed_to_overlap_session) \
-                and \
-                ((other_session_start_time - assignment[self.session]) > self.tolerance)):
-                    self.session.add_overlap(other_session)
+        #     # test time overlap and if allowed overlap session and tolerance
+        #     if (
+        #         (((other_session_start_time >= assignment[self.session]) and \
+        #         (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
+        #             or \
+        #         ((assignment[self.session] >= other_session_start_time) and \
+        #         (assignment[self.session] <= (other_session_start_time + other_session.duration))))
+        #         and \
+        #         (other_session in self.session.allowed_to_overlap_session) \
+        #         and \
+        #         ((other_session_start_time - assignment[self.session]) > self.tolerance)):
+        #             self.session.add_overlap(other_session)
 
         ### Step 2:
         # Actual test
-        test_var = False
-        for other_session, other_session_start_time in assignment.items():
-            # skip test if it's the session to be tested
-            if other_session == self.session:
-                continue
+        #TODO: re-implement using new CSP implementation
+        # test_var = False
+        # for other_session, other_session_start_time in assignment.items():
+        #     # skip test if it's the session to be tested
+        #     if other_session == self.session:
+        #         continue
 
-            if other_session in self.session.overlapped_sessions:
-                # skip if this is allowed overlapping
-                continue
+        #     if other_session in self.session.overlapped_sessions:
+        #         # skip if this is allowed overlapping
+        #         continue
 
 
-            if (
-                ((other_session_start_time >= assignment[self.session]) and \
-                (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
-                or \
-                ((assignment[self.session] >= other_session_start_time) and \
-                (assignment[self.session] <= (other_session_start_time + other_session.duration)))
-                ):
-                return False
+        #     if (
+        #         ((other_session_start_time >= assignment[self.session]) and \
+        #         (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
+        #         or \
+        #         ((assignment[self.session] >= other_session_start_time) and \
+        #         (assignment[self.session] <= (other_session_start_time + other_session.duration)))
+        #         ):
+        #         return False
 
         return True
 
