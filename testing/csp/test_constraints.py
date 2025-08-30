@@ -13,3 +13,8 @@ def test_NoTimeOverlapConstraint(prayers: Prayers):
     '''
     pass
 
+def test_NoSameDayTuition():
+    '''
+
+    '''
+    pass

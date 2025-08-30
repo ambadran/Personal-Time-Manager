@@ -114,3 +114,4 @@ class NoSameDayTuition(Constraint):
     '''
     Constraint class to prevent having the same tuition and 
     '''
+    pass

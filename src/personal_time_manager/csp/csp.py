@@ -4,19 +4,20 @@
 
 * INPUTS *
 CSP Variable Type: `Session`
-CSP Domain Type: `list[datetime]`
-CSP Constraint class(es): `NoTimeOverlapConstraint`
+CSP Domain Type: `SessionTime`
+CSP Constraint class(es): `NoTimeOverlapConstraint`, `NoSameDayTuition`
 
 CSP Variable Type: `Session`
     - Describes what a time slot (session) hold in terms of the activity being done including the priority
     - The Session class is designed to accomodate any type of activity (like google calendar-defined meeting, tuitions, prayers, etc..)
 
-CSP Domain Type: `list[SessionTime]`
+CSP Domain Type: `SessionTime`
     - list of all the SessionTime objects that a specific session can be assigned to
     - SessionTime contains all three needed data about an assigned time to a session:
         - start_time
         - end_time
         - duration
+    - Some SessionTime has overlapping_sessions inside them
 
 CSP Constraint class(es): `NoTimeOverlapConstraint`
     - While the nature of the CSP framework covers the fact that all session can only be done within a defined period of time (domain)
