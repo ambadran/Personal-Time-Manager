@@ -4,6 +4,7 @@ This file defines all the `Constraint` classes the CSP framework needs to take i
 Constraints:
     - NoTimeOverlapConstraint(Constraint)
 '''
+from itertools import combinations
 from datetime import datetime, timedelta
 from personal_time_manager.csp.csp import Constraint, CSP
 from personal_time_manager.sessions.prayers import Prayers
@@ -14,104 +15,106 @@ from typing import Optional
 from pprint import pprint
 
 class NoTimeOverlapConstraint(Constraint):
-    '''
-    Constraint class to prevent time slots from overlapping
+    """
+    Constraint to prevent illegal time slot overlaps.
+    An overlap is "legal" if a session is fully contained within another session
+    that explicitly allows it.
+    """
+    def __init__(self, variables: list[Session]):
+        super().__init__(variables)
 
-    There is an Argument to allow overlap for specific variables (for example prayer in middle of lesson)
+    def satisfied(self, assignment: dict[Session, SessionTime]) -> bool:
+        # Step 1: Check for any fundamentally illegal overlaps.
+        # Using combinations ensures we check each pair only once.
+        assigned_pairs = combinations(assignment.items(), 2)
 
-    Testing for overlap of specific self.session with the other assignment dictionary
-    1- update overlapped_sessions every run, to account for possible change in previous trial
-    2- Tests:
-        1- any of the others start after self.session starts
-        AND
-        2- any of the others starts before self.session ends
-        AND
-        3- not in the allowed_to_overlap_session
-        AND
-        4- not within tolerance of next session starting time
+        for (session1, time1), (session2, time2) in assigned_pairs:
+            if time1.overlaps(time2):
+                # An overlap exists. Check if it's a legal, contained one.
+                # Case A: Session2 is legally inside Session1
+                is_legal_A = (session2 in session1.allowed_to_overlap and time1.contains(time2))
+                # Case B: Session1 is legally inside Session2
+                is_legal_B = (session1 in session2.allowed_to_overlap and time2.contains(time1))
 
-    Session Starts -> datetime in assignment dictionary
-    Session Ends -> datetime in assignment dictionary + session.duration
-    '''
-    def __init__(self, variable: Session, tolerance: timedelta):
-        '''
-        :param variable: the `Session` variable that this Constraint applies to
-        :param tolerance: `timedelta` variable of the amount of time where even if an exception session starts after the start but within specific amount of minutes <tolerance> will be rejected (not satisfied)
-        '''
-        super().__init__([variable])
-        self.session = variable
-        self.tolerance = tolerance
+                if not is_legal_A and not is_legal_B:
+                    return False # This is a strictly illegal overlap. Fail immediately.
 
-    def satisfied(self, assignment: dict[Session: SessionTime]) -> bool:
-        '''
-        Testing for overlap of specific self.session with the other assignment dictionary
-        1- update overlapped_sessions every run, to account for possible change in previous trial
-        2- Tests:
-            1- any of the others start after self.session starts
-            AND
-            2- any of the others starts before self.session ends
-            AND
-            3- not in the allowed_to_overlap_session
-            AND
-            4- not within tolerance of next session starting time
+        # Step 2: If all overlaps are geometrically legal, calculate work times.
+        # This part only runs if the assignment is potentially valid.
+        work_time_cache = {s: t.duration for s, t in assignment.items()}
 
-        Session Starts -> datetime in assignment dictionary
-        Session Ends -> datetime in assignment dictionary + session.duration
-        '''
-        if self.session not in assignment.keys():
-            # Skip entirely if this session is not yet assigned
-            return True
+        for host_session, host_time in assignment.items():
+            for interrupter_session, interrupter_time in assignment.items():
+                if host_session == interrupter_session:
+                    continue
+                
+                # If it's a legal interruption, subtract the duration.
+                if (interrupter_session in host_session.allowed_to_overlap and 
+                        host_time.contains(interrupter_time)):
+                    work_time_cache[host_session] -= interrupter_time.duration
 
-        ### Step 1:
-        #TODO: re-implement using new CSP implementation
-        #TODO: the main challenge is to incorporate overlapped_sessions features again with new domain type definition
-        # Update overlapped_sessions list and duration if an allowed_to_overlap_session is present
-        # self.session.reset_overlap()
-        # for other_session, other_session_start_time in assignment.items():
-        #     # skip test if it's the session to be tested
-        #     if other_session == self.session:
-        #         continue
+        # Step 3: Verify that all sessions meet their minimum work time.
+        for session, work_time in work_time_cache.items():
+            if work_time < session.min_duration:
+                return False # Violation: Did not meet minimum work time.
 
-        #     # test time overlap and if allowed overlap session and tolerance
-        #     if (
-        #         (((other_session_start_time >= assignment[self.session]) and \
-        #         (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
-        #             or \
-        #         ((assignment[self.session] >= other_session_start_time) and \
-        #         (assignment[self.session] <= (other_session_start_time + other_session.duration))))
-        #         and \
-        #         (other_session in self.session.allowed_to_overlap_session) \
-        #         and \
-        #         ((other_session_start_time - assignment[self.session]) > self.tolerance)):
-        #             self.session.add_overlap(other_session)
+        return True # All checks passed.
 
-        ### Step 2:
-        # Actual test
-        #TODO: re-implement using new CSP implementation
-        # test_var = False
-        # for other_session, other_session_start_time in assignment.items():
-        #     # skip test if it's the session to be tested
-        #     if other_session == self.session:
-        #         continue
+#     def satisfied(self, assignment: dict[Session, SessionTime]) -> bool:
+#             """
+#             Checks all pairs for illegal overlaps or for legal overlaps
+#             that violate the minimum duration requirement.
+#             """
+#             # A cache to store the calculated work time for each session
+#             work_time_cache = {session: time.duration for session, time in assignment.items()}
 
-        #     if other_session in self.session.overlapped_sessions:
-        #         # skip if this is allowed overlapping
-        #         continue
+#             # First, find all legal interruptions and subtract their duration
+#             for host_session, host_time in assignment.items():
+#                 for interrupter_session, interrupter_time in assignment.items():
+#                     if host_session == interrupter_session:
+#                         continue
 
+#                     # Check for a legal, contained overlap
+#                     if (interrupter_session in host_session.allowed_to_overlap and
+#                             host_time.contains(interrupter_time)):
+                        
+#                         # Subtract the interrupter's duration from the host's work time
+#                         work_time_cache[host_session] -= interrupter_time.duration
 
-        #     if (
-        #         ((other_session_start_time >= assignment[self.session]) and \
-        #         (other_session_start_time <= (assignment[self.session] + self.session.duration))) \
-        #         or \
-        #         ((assignment[self.session] >= other_session_start_time) and \
-        #         (assignment[self.session] <= (other_session_start_time + other_session.duration)))
-        #         ):
-        #         return False
+#             # Now, perform the two final checks
+#             for session1, time1 in assignment.items():
+#                 # 1. Check if the final work time meets the minimum duration
+#                 if work_time_cache[session1] < session1.min_duration:
+#                     return False # Violation: Work time is less than required minimum
 
-        return True
+#                 # 2. Check for any remaining illegal overlaps
+#                 for session2, time2 in assignment.items():
+#                     if session1 == session2:
+#                         continue
+                    
+#                     # If they overlap and it's NOT a legal containment, it's a violation
+#                     if time1.overlaps(time2):
+#                         is_legal_overlap = (session2 in session1.allowed_to_overlap and time1.contains(time2))
+#                         if not is_legal_overlap:
+#                             return False # Violation: Illegal overlap found
+            
+#             return True # All checks passed
 
 class NoSameDayTuition(Constraint):
     '''
-    Constraint class to prevent having the same tuition and 
+    Constraint to prevent sessions of the same student
+    from being scheduled on the same day.
     '''
-    pass
+    def __init__(self, same_tuition_sessions: list[Session]):
+        """
+        Takes a list of sessions that should not occur on the same day.
+        """
+        super().__init__(same_tuition_sessions)
+        self.tuition_sessions = same_tuition_sessions
+
+    def satisfied(self, assignment: dict[Session, SessionTime]) -> bool:
+        """
+        Checks that any two sessions from its list that are in the assignment
+        do not fall on the same calendar day.
+        """
+        ...

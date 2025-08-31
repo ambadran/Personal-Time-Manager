@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, time
 from enum import Enum, auto
 from pydantic import BaseModel
 from typing import Optional
-from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor, SessionPriority
+from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
 from personal_time_manager.database.db_handler import DatabaseHandler
 from psycopg2.extras import RealDictRow
 
@@ -73,7 +73,8 @@ class Student(BaseModel):
 class Tuition(BaseModel, SessionDescriptor):
     students: list[Student]
     subject: Subject
-    duration: timedelta
+    duration_min: timedelta
+    duration_max: timedelta
 
     @property
     def name(self):
@@ -322,6 +323,7 @@ class Tuitions(SessionGroup):
     def csp_domains(self) -> dict[Session: list[datetime]]:
         #TODO: make a ._csp_domains like .csp_variables
         # return {session: session.domain_values for session in self.csp_variables}
+        ...
 
 
 

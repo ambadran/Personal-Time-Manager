@@ -1,15 +1,17 @@
 '''
-
+This is the main workflow of the Session module.
+It generates ALL CSP variables and CSP domains with all the needed preprocessing!
 '''
 from datetime import datetime
 from personal_time_manager.sessions.prayers import Prayers
 from personal_time_manager.sessions.tuitions import Tuitions
-from personal_time_manager.sessions.admin_panel import FixedActivities
-from personal_time_manager.apple_google_calender import WorkMeetings, OtherActivities
+from personal_time_manager.sessions.fixed_activities import FixedActivities
+from personal_time_manager.sessions.apple_google_calendar import CalendarActivities
+from personal_time_manager.sessions.base_session import Session, SessionTime
 
 #TOOD: make __all__ for base datatypes
 
-def generate_csp_vars_and_domains(week_start_date: datetime) -> list[Session], dict[Session, list[SessionTime]]:
+def generate_csp_vars_and_domains(week_start_date: datetime) -> tuple[list[Session], dict[Session, list[SessionTime]]]:
     '''
 
     '''
@@ -32,11 +34,9 @@ def generate_csp_vars_and_domains(week_start_date: datetime) -> list[Session], d
     #TODO generate the domain values after adding the new overlapping session with its time domain (after recursion) and taking it into consideration and taking own allowed_times into consideration as well as durations
     csp_domains: dict[Session: list[datetime]] = {}
     for session in csp_variables:
-        csp_domains[session] = SessionTime.from_raw_data(
-                                            session.allowed_times,
-                                            session.min_duration,
-                                            session.max_duration,
-                                            session.allowed_to_overlap)
+        csp_domains[session] = SessionTime.from_raw_data(session)
+        if not csp_domains[session]:
+            raise ValueError(f"No domain values generated for {session}")
 
     return csp_variables, csp_domains
 

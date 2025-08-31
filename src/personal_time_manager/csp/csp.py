@@ -32,6 +32,9 @@ CSP Assignment Type: `dict[Session: SessionTime]`
     - Contains ALL `Session` variables in a week as keys
     - Contains the correct `SessionTime` value for each key
     - The PERFECT Timetable! :D
+
+
+The algorithm now doesn't modify the duration of an overlapped session, it just checks if the remaining duration is above set minimum duration of overlapped session
 '''
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
@@ -76,7 +79,6 @@ class CSP:
             # as we are looping varaibles, checking that all variables are in the domain dict by the way
             if variable not in self.domains:
                 raise LookupError(f"Every variable must have a domain list assigned to it in the domain dict\n{variable} is not in domains")
-
 
     def add_constraint(self, constraint: Constraint):
         """

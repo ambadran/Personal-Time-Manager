@@ -5,7 +5,7 @@ Example is work time, my sleep time, Gym times and more
 from datetime import datetime, timedelta, time
 from enum import Enum, auto
 from pydantic import BaseModel
-from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor, SessionPriority
+from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
 from personal_time_manager.database.db_handler import DatabaseHandler
 from psycopg2.extras import RealDictRow
 

@@ -1,6 +1,7 @@
 '''
 
 '''
+from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
 
 class CalendarActivities(SessionGroup):
     '''
