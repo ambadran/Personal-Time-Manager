@@ -112,7 +112,7 @@ class Prayers(SessionGroup):
         minutes = self.db_data["eqama_times"].get(prayer_type.name, 20)
         return timedelta(minutes=minutes)
 
-    def _get_duration_from_db(self, prayer_type: PrayerType, day: WeekDay) -> Tuple[timedelta, timedelta]:
+    def _get_duration_from_db(self, prayer_type: PrayerType, day: WeekDay) -> tuple[timedelta, timedelta]:
         """ Gets the session duration range, handling special cases like Jumah. """
         if prayer_type == PrayerType.DHUHR and day == WeekDay.FRIDAY:
             min_minutes = self.db_data["durations"]["JUMAH_min"]

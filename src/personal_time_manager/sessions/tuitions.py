@@ -21,7 +21,7 @@ from psycopg2.extras import RealDictRow
 # Temp
 # from pprint import pprint
 
-#TODO: all these defaults should be set from admin panel in frontend
+#TODO: all these defaults should be set by fetching their values form DB
 DEFAULT_COST_PER_HOUR = 6
 DEFAULT_DURATION = timedelta(minutes=90)
 
@@ -50,6 +50,7 @@ class StudentStatus(Enum): # ;)
     Sigma = auto()
     HIM = auto()
 
+#TODO: remove
 DEFAULT_STUDENT_STATUS = StudentStatus.NONE
 
 class Student(BaseModel):
@@ -59,77 +60,77 @@ class Student(BaseModel):
     grade: int
     cost_per_hour: float
     status: StudentStatus
-    availability: list[datetime]
+    # availability: list[datetime]
+    busy_intervals: list[tuple[datetime, datetime]]
 
-    def __eq__(self, other) -> bool:
-        return self.id == other.id
+    def __hash__(self):
+        return hash(self.id)
     
     def __repr__(self) -> str:
-        return f"Student(\"{self.first_name} {self.family_name}\", grade={self.grade})"
-
-    def __str__(self) -> str:
-        return f"<{self.first_name} {self.family_name}, G{self.grade}>"
+        return f"Student('{self.first_name} {self.family_name}', G{self.grade})"
 
 class Tuition(BaseModel, SessionDescriptor):
+    """
+    A self-contained descriptor for a specific tuition session. 
+    """
     students: list[Student]
     subject: Subject
-    duration_min: timedelta
-    duration_max: timedelta
+    min_duration: timedelta
+    max_duration: timedelta
+
+    model_config = ConfigDict(frozen=True)
 
     @property
     def name(self):
-        tuition_name = ""
-        for student in self.students:
-            tuition_name += f"{student.first_name}_"
-        tuition_name += self.subject.name
+        student_names = "_".join(s.first_name for s in sorted(self.students, key=lambda x: x.id))
+        return f"Tuition_{student_names}_{self.subject.name}"
 
-        return tuition_name
-
-    def __eq__(self, other: Tuition) -> bool:
-        '''
-        This function is mainly used to test whether a tuition class was already created or not.
-        This is especially important to prevent duplicate tuition class for shared classes
-        '''
-        for student in self.students:
-            if student not in other.students:
-                return False
-
-        for student in other.students:
-            if student not in self.students:
-                return False
-
-        return self.subject == other.subject
-
-    def __repr__(self) -> str:
-        return f"Tuition({self.subject.name}, {[s.first_name for s in self.students]}, {self.duration})"
-
-    def __str__(self) -> str:
-        return f"{self.name} ({self.duration})"
-
+    def __hash__(self):
+        # Create a stable hash based on student IDs and subject
+        student_ids = tuple(sorted(s.id for s in self.students))
+        return hash((student_ids, self.subject))
 
 class Tuitions(SessionGroup):
+    """
+    Generates all Tuition sessions for a week based on DB data. 
+    """
     def __init__(self, week_start_date: datetime):
         super().__init__(week_start_date)
 
         # Step 1: Get raw json data from Database
-        self.raw_data = self.get_latest_db_data()
+        self.raw_admin_parameters = self.get_latest_admin_parameters()
+        raw_student_data = self.get_latest_student_data()
 
         # Step 2: Parse Raw data
-        self.student_list: list[Student] = self.get_student_list()
-        self.tuition_list: list[Tuition] = self.get_tuition_list()
+        self.students: list[Student] = self.get_student_list(raw_student_data)
+        self.tuition_descriptors: list[Tuition] = self.get_tuition_list(raw_student_data, self.students)
 
-        # Step 3: Create CSP variable list
-        self._csp_variables: list[Session] = []
-        for tuition in self.tuition_list:
+        # 3. Create the final list of Session variables
+        self._csp_variables: List[Session] = []
+        for tuition_descriptor in self.tuition_descriptors:
             self._csp_variables.append(
                 Session(
-                    session_descriptor=tuition, 
-                    base_duration=tuition.duration, 
-                    domain_values=self.get_domain_times_for_tuition(tuition),
-                    priority=SessionPriority.HIGH))
+                    session_descriptor=tuition_descriptor,
+                    allowed_times=self.get_allowed_times(tuition_descriptor),
+                    min_duration=self.get_min_duration(tuition_descriptor),
+                    max_duration=self.get_max_duration(tuition_descriptor)
+                )
+            )
 
-    def get_latest_db_data(self) -> list[RealDictRow]:
-        '''return all raw data from database'''
+    def get_latest_admin_parameters(self) -> Dict[str, Any]:
+        """ Mocks fetching tuition-specific settings from the database. """
+        print("INFO: Loading tuition settings from database...")
+        return {
+            "default_cost_per_hour": 6.0,
+            "default_status": "NONE",
+            "default_min_duration_mins": 60,
+            "default_max_duration_mins": 90
+        }
+
+    def get_latest_student_data(self) -> list[RealDictRow]:
+        """ Mocks fetching all raw student data from the database. """
+        #TODO: put this in the logging system
+        print("INFO: Loading student data from database...")
         return DatabaseHandler().export_all_data()
 
     def get_student_list(self) -> list[Student]:
@@ -141,189 +142,125 @@ class Tuitions(SessionGroup):
         (It was designed like that because it's easier to input 
         and to encourage give me more time to work with ;) )
         '''
-        try:
-            # Step 1: get each student dictionary
-            raw_student_dict_list: list[dict] = []
-            for user in self.raw_data:
-                for student_dict in user['students']:
-                    raw_student_dict_list.append(student_dict)
+        students_map: Dict[str, Student] = {}
+        for user in raw_student_data:
+            for student_dict in user.get('students', []):
+                try:
+                    # Pydantic validates the data upon object creation
+                    info = student_dict['basicInfo']
+                    student = Student(
+                        id=student_dict['id'],
+                        first_name=info['firstName'],
+                        family_name=info['lastName'],
+                        grade=info['grade'],
+                        cost_per_hour=self.raw_admin_parameters["default_cost_per_hour"],
+                        status=StudentStatus[self.raw_admin_parameters["default_status"]],
+                        busy_intervals=self._generate_busy_intervals(student_dict.get('availability', {}))
+                    )
+                    if student.id not in students_map:
+                        students_map[student.id] = student
 
-            # Step 2: create the Student instance for each student dict
-            student_list: list[Student] = []
-            for raw_student_dict in raw_student_dict_list:
+                except (ValidationError, KeyError) as e:
+                    # Catch the error if required fields are missing/wrong
+                    student_name = student_dict.get('basicInfo', {}).get('firstName', 'Unknown')
+                    #TODO: put this in the logging system
+                    print(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
+                    continue
+        
+        return list(students_map.values())
 
-                id = raw_student_dict['id']
-                first_name = raw_student_dict['basicInfo']['firstName']
-                family_name = raw_student_dict['basicInfo']['lastName']
-                grade = raw_student_dict['basicInfo']['grade']
-                #TODO: should get this from future admin frontend -> admin database
-                cost_per_hour = 6
-                #TODO: should get this from future admin frontend -> admin database
-                status = StudentStatus.NONE 
-                availability = self._generate_availability(raw_student_dict['availability'])
-                student_list.append(Student(id=id,
-                                            first_name=first_name,
-                                            family_name=family_name,
-                                            grade=grade,
-                                            cost_per_hour=cost_per_hour,
-                                            status=status,
-                                            availability=availability))
+   def get_tuition_list(self, raw_student_data: list[RealDictRow], student_list: list[Student]) -> list[Tuition]:
+        """ Creates all unique Tuition descriptors needed for the week. """
+        # Create a quick lookup map for students by ID
+        students_map = {s.id: s for s in student_list}
+        
+        tuition_list = []
+        for user in raw_student_data:
+            for student_dict in user.get('students', []):
+                for subject_info in student_dict.get('subjects', []):
+                    try:
+                        student_ids = [student_dict['id']] + subject_info.get('sharedWith', [])
+                        current_students = [students_map[sid] for sid in student_ids if sid in students_map]
 
-            return student_list
+                        descriptor = Tuition(
+                            students=current_students,
+                            subject=Subject.from_string(subject_info['name']),
+                            min_duration=timedelta(minutes=self.raw_admin_parameters["default_min_duration_mins"]),
+                            max_duration=timedelta(minutes=self.raw_admin_parameters["default_max_duration_mins"])
+                        )
+                        
+                        lessons_count = subject_info.get('lessonsPerWeek', 1)
+                        tuition_list.extend([descriptor] * lessons_count)
+                    except (ValidationError, KeyError) as e:
+                        student_name = student_dict.get('basicInfo', {}).get('firstName', 'Unknown')
+                        subject_name = subject_info.get('name', 'Unknown')
+                        print(f"WARNING: Skipping broken tuition record for '{student_name} - {subject_name}'. Reason: {e}")
+                        continue
+        return tuition_list
 
-        except KeyError:
-            # pprint(self.raw_data)
-            raise KeyError(f"Propably some json key not found: {e}")
-
-
-
-    def get_student_by_id(self, id: str) -> Optional[Student]:
-        '''
-        return student from self.student_list by id
-        '''
-        for student in self.student_list:
-            if student.id == id:
-                return student
-
-    def _generate_availability(self, availability_dict: dict) -> list[datetime.datetime]:
-        '''
-        Generates a list of all available one-minute datetime objects for a given week.
-
-        Args:
-            availability_dict: A dictionary with days of the week as keys and lists
-                               of busy time intervals as values.
-
-        Returns:
-            A list of datetime.datetime objects, each representing a single minute
-            of free time during the week.
-        '''
+    def _generate_busy_intervals(self, availability_dict: dict) -> List[Tuple[datetime, datetime]]:
         busy_intervals = []
         start_of_week_date = self.week_start_date.date()
         day_names = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 
-        # --- 1. Generate intervals for the single target week ---
         for day_offset, day_name in enumerate(day_names):
             current_date = start_of_week_date + timedelta(days=day_offset)
             for interval in availability_dict.get(day_name, []):
-                if 'start' not in interval or 'end' not in interval:
-                    continue
-
                 try:
                     start_time = datetime.strptime(interval['start'], '%H:%M').time()
                     end_time = datetime.strptime(interval['end'], '%H:%M').time()
-
                     start_dt = datetime.combine(current_date, start_time)
-                    end_dt = datetime.combine(current_date + timedelta(days=1 if end_time <= start_time else 0), end_time)
-                    
+                    end_dt = datetime.combine(current_date, end_time)
+                    if end_dt <= start_dt:
+                        end_dt += timedelta(days=1)
                     busy_intervals.append((start_dt, end_dt))
-                except ValueError:
+                except (ValueError, KeyError):
                     continue
+        return sorted(busy_intervals)
 
-        # --- 2. **FIX**: Explicitly handle the Friday-to-Saturday wrap-around ---
-        # Any overnight event on Friday also makes the Saturday of that same week busy.
-        for interval in availability_dict.get('friday', []):
-            if 'start' not in interval or 'end' not in interval:
-                continue
-            try:
-                start_time = datetime.strptime(interval['start'], '%H:%M').time()
-                end_time = datetime.strptime(interval['end'], '%H:%M').time()
+    # --- Implementation of SessionGroup Abstract Methods ---
 
-                # If it's an overnight interval, add a corresponding busy block to Saturday morning
-                if end_time <= start_time:
-                    wrap_around_start = datetime.combine(start_of_week_date, time.min)
-                    wrap_around_end = datetime.combine(start_of_week_date, end_time)
-                    busy_intervals.append((wrap_around_start, wrap_around_end))
-            except ValueError:
-                continue
+    def get_allowed_times(self, tuition: Tuition) -> AllowedTimes:
+        week_start = self.week_start_date
+        week_end = week_start + timedelta(days=7)
+        free_intervals = [(week_start, week_end)]
 
-        # --- 3. Iterate through the week and find free slots ---
-        free_minutes = []
-        start_of_week_dt = datetime.combine(start_of_week_date, time.min)
-        
-        for minute_offset in range(10080):
-            current_minute = start_of_week_dt + timedelta(minutes=minute_offset)
-            is_busy = False
-            for start_busy, end_busy in busy_intervals:
-                if start_busy <= current_minute < end_busy:
-                    is_busy = True
-                    break
-            
-            if not is_busy:
-                free_minutes.append(current_minute)
-                
-        return free_minutes
-
-    def get_tuition_list(self) -> list[Tuition]:
-        '''
-        this method REQUIRES self.student_list to be defined properly
-        return list of all tuitions to be given in a week 
-        '''
-        try:
-            # Step 1: get each student dictionary
-            raw_student_dict_list: list[dict] = []
-            for user in self.raw_data:
-                for student_dict in user['students']:
-                    raw_student_dict_list.append(student_dict)
-
-            # Step 2: create the Student instance for each student dict
-            tuition_list: list[Tuition] = []
-            for raw_student_dict in raw_student_dict_list:
-
-                for subject in raw_student_dict['subjects']:
-
-                    # Step 1: Get Subject Instance from Json data
-                    subject_obj = Subject.from_string(subject['name'])
-
-                    # Step 2: complete shareWith if there is any other students to add 
-                    students_list = [self.get_student_by_id(raw_student_dict['id'])]
-                    for student_id in subject['sharedWith']:
-                        students_list.append(self.get_student_by_id(student_id))
-
-                    # Step 3: Get duration 
-                    #TODO
-
-                    # Step 4: Create the proper amount of lessons per week
-                    new_tuition = Tuition(
-                                        students=students_list,
-                                        subject=subject_obj,
-                                        duration=DEFAULT_DURATION
-                                            )
-                    if new_tuition not in tuition_list:
-                        for tuition_num in range(subject['lessonsPerWeek']):
-                            tuition_list.append(new_tuition)
-
-            return tuition_list
-
-        except KeyError as e:
-            # pprint(self.raw_data)
-            raise KeyError(f"Propably some json key not found: {e}")
-
-    def get_domain_times_for_tuition(self, tuition: Tuition) -> list[datetime]:
-        '''
-        return list of all the allowed minutes for this specific Tuition
-        '''
-        # Step 1: get a list of set for each student
-        allowed_times_each_student: list[set[datetime]] = []
         for student in tuition.students:
-            allowed_times_each_student.append(set(student.availability))
+            next_free_intervals = []
+            for free_start, free_end in free_intervals:
+                student_free_slots = self._subtract_busy_from_interval(
+                    (free_start, free_end), student.busy_intervals
+                )
+                next_free_intervals.extend(student_free_slots)
+            free_intervals = next_free_intervals
 
-        # Step 2: Union all the sets ;D
-        big_set = allowed_times_each_student[0]
-        for time_set in allowed_times_each_student[1:]:
-            big_set &= time_set
+        return AllowedTimes(free_intervals)
 
-        # Step 3: return ordered list
-        return sorted(big_set)
+    def _subtract_busy_from_interval(self, free_interval: Tuple, busy_intervals: List[Tuple]) -> List[Tuple]:
+        free_start, free_end = free_interval
+        remaining_slots = [(free_start, free_end)]
 
+        for busy_start, busy_end in busy_intervals:
+            new_remaining = []
+            for current_start, current_end in remaining_slots:
+                if busy_end <= current_start or busy_start >= current_end:
+                    new_remaining.append((current_start, current_end))
+                    continue
+                if busy_start > current_start:
+                    new_remaining.append((current_start, busy_start))
+                if busy_end < current_end:
+                    new_remaining.append((busy_end, current_end))
+            remaining_slots = new_remaining
+        return remaining_slots
+
+    def get_min_duration(self, tuition: Tuition) -> timedelta:
+        return tuition.min_duration
+
+    def get_max_duration(self, tuition: Tuition) -> timedelta:
+        return tuition.max_duration
     @property
     def csp_variables(self) -> list[Session]:
         return self._csp_variables
-
-    @property
-    def csp_domains(self) -> dict[Session: list[datetime]]:
-        #TODO: make a ._csp_domains like .csp_variables
-        # return {session: session.domain_values for session in self.csp_variables}
-        ...
 
 
 

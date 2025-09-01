@@ -135,7 +135,7 @@ class SessionTime:
     Represents a specific time slot with 
     - Start time
     - End time
-    - Base Duration (without overlapped sessions)
+    # - Base Duration (without overlapped sessions)
     # - list of allowed to overlap SessionTime(s)
     '''
     DEFAULT_STEP_MINUTE = 1
