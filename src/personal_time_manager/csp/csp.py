@@ -106,7 +106,6 @@ class CSP:
 
         return True # after looping all constraints in the variable and making sure it is all saitisfied according to the value in the assingment dict
 
-
     def backtracking_search(self, assignment = {}):
         # assignment is complete if every variable is assigned (our base case)
         if len(assignment) == len(self.variables):

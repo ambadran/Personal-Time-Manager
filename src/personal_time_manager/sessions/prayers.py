@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta, time
 from personal_time_manager.sessions.base_session import AllowedTimes, SessionDescriptor, Session, SessionTime, SessionGroup
+from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
 
 class PrayerType(Enum):
     FAJR = auto()
@@ -50,19 +51,18 @@ class Prayer(BaseModel, SessionDescriptor):
 
 class Prayers(SessionGroup):
     '''
-
     '''
     BASE_URL = "http://api.aladhan.com/v1/timings"
     EQAMA_TOLERANCE = timedelta(minutes=5) # Time to get ready before Eqama
-    def __init__(self, week_start_date: datetime):
-        super().__init__(week_start_date)
+    def __init__(self, week_start_date: datetime, db_handler: DatabaseHandler):
+        super().__init__(week_start_date, db_handler)
 
         # Get DB Parameters
         self.db_data = self._load_db_parameters()
         self.latitude = self.db_data["location"]["latitude"]
         self.longitude = self.db_data["location"]["longitude"]
         self.prayer_calc_method = self.db_data["api_method"]
-        self._prayer_time_cache: dict[str, Dict] = {}
+        self._prayer_time_cache: dict[str, dict] = {}
 
         # Create list of all distinct SessionDescriptor that will have its be used in a seperate Session variable
         self.prayer_descriptors: list[Prayer] = []
@@ -91,20 +91,29 @@ class Prayers(SessionGroup):
                     ))
 
     def _load_db_parameters(self) -> dict[str, Any]:
-        """ Mocks fetching configuration from a Postgres database. """
+        """
+        Fetches the single row of prayer settings from the database
+        and formats it into the required nested dictionary.
+        """
         print("INFO: Loading prayer settings from database...")
+        query = "SELECT * FROM prayer_settings WHERE id = 1;"
+        
+        # Use the passed-in db_handler to fetch data
+        db_row = self.db_handler.fetch_one(query)
+
+        if not db_row:
+            raise ConnectionError("Could not load prayer settings from the database.")
+
+        # Transform the flat database row into the nested structure needed by the class
+        #TODO: implement try except to check for KeyError
         return {
-            "location": {"latitude": 29.954090, "longitude": 31.067551},
-            "api_method": 2, # Islamic Society of North America
-            "eqama_times": { # Offset from Athan time in minutes
-                "FAJR": 25, "DHUHR": 20, "ASR": 20, "MAGHRIB": 10, "ISHA": 20
+            "location": {
+                "latitude": float(db_row['latitude']),
+                "longitude": float(db_row['longitude'])
             },
-            "durations": { # Duration of the prayer session in minutes
-                "default_min": 15,    # NEW
-                "default_max": 25,    # NEW
-                "JUMAH_min": 45,      # NEW
-                "JUMAH_max": 60       # NEW
-            }
+            "api_method": db_row['api_method'],
+            "eqama_times": db_row['eqama_times_mins'],
+            "durations": db_row['duration_mins']
         }
 
     def _get_eqama_from_db(self, prayer_type: PrayerType) -> timedelta:

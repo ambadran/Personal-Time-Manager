@@ -4,18 +4,20 @@ Example is work time, my sleep time, Gym times and more
 '''
 from datetime import datetime, timedelta, time
 from enum import Enum, auto
+from typing import Any
 from pydantic import BaseModel, ConfigDict
 from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor, AllowedTimes
-from personal_time_manager.database.db_handler import DatabaseHandler
+from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
 from psycopg2.extras import RealDictRow
 
 class WorkType(Enum):
-    MainJob = auto()
-    Freelance = auto()
-    MainJob_Freelance = auto()
-    tuition = auto()
+    MAINJOB = auto()
+    FREELANCE = auto()
+    # Pydantic will auto-convert MainJob_Freelance from the DB
+    MAINJOB_FREELANCE = auto()
+    TUITION = auto()
 
-class GymWorkout(Enum):
+class GymType(Enum):
     PUSH = auto()
     PULL = auto()
     LEG = auto()
@@ -35,7 +37,7 @@ class Gym(BaseModel, SessionDescriptor):
     type: GymWorkout
     min_duration: timedelta
     max_duration: timedelta
-    allowed_intervals: List[Dict[str, Any]] # Stores the DB rules
+    allowed_intervals: list[dict[str, Any]] # Stores the DB rules
 
     model_config = ConfigDict(frozen=True)
 
@@ -47,7 +49,7 @@ class Sleep(BaseModel, SessionDescriptor):
     type: SleepType
     min_duration: timedelta
     max_duration: timedelta
-    allowed_intervals: List[Dict[str, Any]] # Stores the DB rules
+    allowed_intervals: list[dict[str, Any]] # Stores the DB rules
 
     model_config = ConfigDict(frozen=True)
 
@@ -59,7 +61,7 @@ class Work(BaseModel, SessionDescriptor):
     type: WorkType
     min_duration: timedelta
     max_duration: timedelta
-    allowed_intervals: List[Dict[str, Any]] # Stores the DB rules
+    allowed_intervals: list[dict[str, Any]] # Stores the DB rules
 
     model_config = ConfigDict(frozen=True)
 
@@ -71,7 +73,7 @@ class Meal(BaseModel, SessionDescriptor):
     type: MealType
     min_duration: timedelta
     max_duration: timedelta
-    allowed_intervals: List[Dict[str, Any]] # Stores the DB rules
+    allowed_intervals: list[dict[str, Any]] # Stores the DB rules
 
     model_config = ConfigDict(frozen=True)
 
@@ -83,32 +85,30 @@ class FixedActivities(SessionGroup):
     """
     Generates all fixed personal activities for a week (Sleep, Work, Gym, Meals)
     based on parameters fetched from the database.
+
+    I had the amazing idea of making 3 rules to ensure modularity and not having to define strings explicitly 
+    to handle database
+
+    **The RULES**
+    1- Database Category Name is EXACTLY the same as Python Class Name
+        - DB: 'Gym' -> Python: class Gym()
+    2- Database Type Column is EXACTLY the same as Python Class Name followed by '_type'
+        - For 'Gym' class -> DB column must be gym_type
+    3- Python Enum Class is EXACTLY the same as Python Class Name
+        - 'class Gym' must use enum named 'GymType'
     """
-    def __init__(self, week_start_date: datetime):
-        super().__init__(week_start_date)
+    WORKING_DAYS = [1, 2, 3, 4, 5] # Sun-Thu in Egypt
+    def __init__(self, week_start_date: datetime, db_handler: DatabaseHandler):
+        super().__init__(week_start_date, db_handler)
 
-        # 1. Load all parameters from the (mocked) database
-        self.db_data = self._load_db_parameters()
+        # 1. Load all fixed activity records from the database
+        activity_rows = self._load_fixed_activities_from_db()
 
-        # 2. Define an activity map to automate processing
-        self.activity_map = {
-            "gym": {"model": Gym, "enum": GymWorkout},
-            "sleep": {"model": Sleep, "enum": SleepType},
-            "work": {"model": Work, "enum": WorkType},
-            "meal": {"model": Meal, "enum": MealType},
-        }
+        # 2. Create all descriptors from the database rows using our new automated logic
+        self.fixed_descriptors = self._create_descriptors_from_rows(activity_rows)
 
-        # 3. Create all descriptors by iterating over the map
-        self.fixed_descriptors: List[SessionDescriptor] = []
-        for activity_key, config in self.activity_map.items():
-            self._create_descriptors_from_db(
-                activity_key=activity_key,
-                model_class=config["model"],
-                enum_class=config["enum"]
-            )
-
-        # 3. Create the final list of Session variables
-        self._csp_variables: List[Session] = []
+        # 3. Create the final list of Session variables (this part is unchanged)
+        self._csp_variables: list[Session] = []
         for descriptor in self.fixed_descriptors:
             self._csp_variables.append(
                 Session(
@@ -119,34 +119,56 @@ class FixedActivities(SessionGroup):
                 )
             )
         
-    def _load_db_parameters(self) -> Dict[str, Any]:
-        """ Mocks the new, more flexible database structure. """
-        #TODO: put this in the logging system
-        print("INFO: Loading fixed activity settings from flexible DB structure...")
-        return {
-            "gym": [
-                {"type": "PUSH", "sessions_per_week": 1, "min_duration_mins": 60, "max_duration_mins": 90, "allowed_intervals": [{"day": "saturday", "start": "10:00", "end": "20:00"}]},
-                {"type": "PULL", "sessions_per_week": 1, "min_duration_mins": 60, "max_duration_mins": 75, "allowed_intervals": [{"day": "monday", "start": "18:00", "end": "22:00"}]},
-                {"type": "LEG", "sessions_per_week": 1, "min_duration_mins": 75, "max_duration_mins": 90, "allowed_intervals": [{"day": "wednesday", "start": "18:00", "end": "22:00"}]}
-            ],
-            "sleep": [{"type": "NIGHT", "sessions_per_week": 7, "min_duration_mins": 420, "max_duration_mins": 540, "allowed_intervals": [{"day": "all", "start": "21:00", "end": "09:00"}]}],
-            "work": [{"type": "MAIN_JOB", "sessions_per_week": 5, "min_duration_mins": 480, "max_duration_mins": 540, "allowed_intervals": [{"day": "working_days", "start": "08:00", "end": "18:00"}]}],
-            "meal": [{"type": "LUNCH", "sessions_per_week": 7, "min_duration_mins": 30, "max_duration_mins": 60, "allowed_intervals": [{"day": "all", "start": "12:00", "end": "15:00"}]}]
-        }
+    def _load_fixed_activities_from_db(self) -> list[dict[str, Any]]:
+        """ Fetches all records from the fixed_activities table. """
+        print("INFO: Loading fixed activity settings from database...")
+        query = "SELECT * FROM fixed_activities;"
+        return self.db_handler.fetch_all(query)
 
-    def _create_descriptors_from_db(self, activity_key: str, model_class, enum_class, enum_field: str):
+    def _create_descriptors_from_rows(self, activity_rows: list[dict[str, Any]]) -> list[SessionDescriptor]:
         """
-        Parses a list of activity entries from the DB data to create descriptors.
+        Dynamically parses database rows into the correct Pydantic models
+        based on the established naming convention.
+
+        The automated logic if the rules applies is as follows
+            # Rule 1: Find the Pydantic model class (e.g., Gym)
+            # Rule 2: Find the Enum class (e.g., GymType)
+            # Rule 3: Determine the database column name (e.g., "gym_type")
         """
-        activity_entries = self.db_data.get(activity_key, [])
-        for entry in activity_entries:
-            descriptor = model_class(
-                type=enum_class[entry['type']],
-                min_duration=timedelta(minutes=entry['min_duration_mins']),
-                max_duration=timedelta(minutes=entry['max_duration_mins']),
-                allowed_intervals=entry['allowed_intervals']
-            )
-            self.fixed_descriptors.extend([descriptor] * entry['sessions_per_week'])
+        descriptors = []
+        #IMP Get a reference to all items defined in the current module's scope :D
+        current_module_scope = globals()
+
+        for row in activity_rows:
+            category_str = row['fixed_activity_category'] # e.g., "Gym"
+
+            # --- Automation Logic ---
+            # Rule 1: Find the Pydantic model class (e.g., Gym)
+            model_class = current_module_scope.get(category_str)
+            # Rule 2: Find the Enum class (e.g., GymType)
+            enum_class = current_module_scope.get(f"{category_str}Type")
+            # Rule 3: Determine the database column name (e.g., "gym_type")
+            type_col = f"{category_str.lower()}_type"
+            # --- End of Automation Logic ---
+
+            if not all([model_class, enum_class]):
+                print(f"WARNING: No matching Python model/enum for category '{category_str}'. Skipping.")
+                continue
+            
+            try:
+                descriptor = model_class(
+                    type=enum_class[row[type_col]],
+                    min_duration=timedelta(minutes=row['min_duration_mins']),
+                    max_duration=timedelta(minutes=row['max_duration_mins']),
+                    allowed_intervals=row['allowed_intervals']
+                )
+                descriptors.extend([descriptor] * row['sessions_per_week'])
+            except (ValidationError, KeyError) as e:
+                raise ValueError(f"WARNING: Skipping broken fixed activity record (ID: {row.get('id', 'N/A')}). Reason: {e}")
+                # print(f"WARNING: Skipping broken fixed activity record (ID: {row.get('id', 'N/A')}). Reason: {e}")
+                # continue
+        
+        return descriptors
 
     def get_allowed_times(self, descriptor: SessionDescriptor) -> AllowedTimes:
         """
@@ -158,7 +180,7 @@ class FixedActivities(SessionGroup):
             "saturday": [0], "sunday": [1], "monday": [2], "tuesday": [3],
             "wednesday": [4], "thursday": [5], "friday": [6],
             "all": list(range(7)),
-            "working_days": [1, 2, 3, 4, 5] # Sun-Thu in Egypt
+            "working_days": self.WORKING_DAYS
         }
         
         # This logic is already automated as you suggested

@@ -12,18 +12,14 @@ This Module generates Inputs to CSP Framework
 from __future__ import annotations
 from datetime import datetime, timedelta, time
 from enum import Enum, auto
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
-from personal_time_manager.database.db_handler import DatabaseHandler
+from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
 from psycopg2.extras import RealDictRow
 
 # Temp
 # from pprint import pprint
-
-#TODO: all these defaults should be set by fetching their values form DB
-DEFAULT_COST_PER_HOUR = 6
-DEFAULT_DURATION = timedelta(minutes=90)
 
 class Subject(Enum):
     Math = auto()
@@ -49,9 +45,6 @@ class StudentStatus(Enum): # ;)
     Omega = auto()
     Sigma = auto()
     HIM = auto()
-
-#TODO: remove
-DEFAULT_STUDENT_STATUS = StudentStatus.NONE
 
 class Student(BaseModel):
     id: str
@@ -94,19 +87,18 @@ class Tuitions(SessionGroup):
     """
     Generates all Tuition sessions for a week based on DB data. 
     """
-    def __init__(self, week_start_date: datetime):
-        super().__init__(week_start_date)
+    def __init__(self, week_start_date: datetime, db_handler: DatabaseHandler):
+        super().__init__(week_start_date, db_handler)
 
-        # Step 1: Get raw json data from Database
-        self.raw_admin_parameters = self.get_latest_admin_parameters()
-        raw_student_data = self.get_latest_student_data()
+        # Step 1: Fetch all student data in a single query
+        all_student_rows = self._load_student_data_from_db()
 
         # Step 2: Parse Raw data
-        self.students: list[Student] = self.get_student_list(raw_student_data)
-        self.tuition_descriptors: list[Tuition] = self.get_tuition_list(raw_student_data, self.students)
+        self.students: list[Student] = self._parse_students(raw_student_data)
+        self.tuition_descriptors: list[Tuition] = self._create_tuition_descriptors(raw_student_data, self.students)
 
         # 3. Create the final list of Session variables
-        self._csp_variables: List[Session] = []
+        self._csp_variables: list[Session] = []
         for tuition_descriptor in self.tuition_descriptors:
             self._csp_variables.append(
                 Session(
@@ -117,88 +109,78 @@ class Tuitions(SessionGroup):
                 )
             )
 
-    def get_latest_admin_parameters(self) -> Dict[str, Any]:
-        """ Mocks fetching tuition-specific settings from the database. """
-        print("INFO: Loading tuition settings from database...")
-        return {
-            "default_cost_per_hour": 6.0,
-            "default_status": "NONE",
-            "default_min_duration_mins": 60,
-            "default_max_duration_mins": 90
-        }
-
-    def get_latest_student_data(self) -> list[RealDictRow]:
-        """ Mocks fetching all raw student data from the database. """
+    def _load_student_data_from_db(self) -> list[RealDictRow]:
+        """ Fetches all student records and their parameters in one go. """
         #TODO: put this in the logging system
-        print("INFO: Loading student data from database...")
-        return DatabaseHandler().export_all_data()
+        print("INFO: Loading all student data from database...")
+        #TODO: update this after students table in the database is updated
+        query = "SELECT id, user_id, student_data, cost_per_hour, status, min_duration_mins, max_duration_mins FROM students;"
+        return self.db_handler.fetch_all(query)
 
-    def get_student_list(self) -> list[Student]:
-        '''
-        return list of all registered students 
-
-        Remember the input 'available' mentions that opposite.
-        It provides the times where the student is NOT free
-        (It was designed like that because it's easier to input 
-        and to encourage give me more time to work with ;) )
-        '''
+    def _parse_students(self, all_student_rows: list[RealDictRow]) -> list[Student]:
+        """ Parses all unique students using the real per-student admin parameters. """
         students_map: Dict[str, Student] = {}
-        for user in raw_student_data:
-            for student_dict in user.get('students', []):
-                try:
-                    # Pydantic validates the data upon object creation
-                    info = student_dict['basicInfo']
-                    student = Student(
-                        id=student_dict['id'],
-                        first_name=info['firstName'],
-                        family_name=info['lastName'],
-                        grade=info['grade'],
-                        cost_per_hour=self.raw_admin_parameters["default_cost_per_hour"],
-                        status=StudentStatus[self.raw_admin_parameters["default_status"]],
-                        busy_intervals=self._generate_busy_intervals(student_dict.get('availability', {}))
-                    )
-                    if student.id not in students_map:
-                        students_map[student.id] = student
-
-                except (ValidationError, KeyError) as e:
-                    # Catch the error if required fields are missing/wrong
-                    student_name = student_dict.get('basicInfo', {}).get('firstName', 'Unknown')
-                    #TODO: put this in the logging system
-                    print(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
+        for row in all_student_rows:
+            try:
+                student_json = row['student_data']
+                student_id = student_json['id'] # The ID within the JSON
+                if student_id in students_map:
                     continue
-        
+                
+                info = student_json['basicInfo']
+                student = Student(
+                    id=student_id,
+                    first_name=info['firstName'],
+                    family_name=info['lastName'],
+                    grade=info['grade'],
+                    cost_per_hour=row['cost_per_hour'], # From its own column
+                    status=StudentStatus[row['status']], # From its own column
+                    busy_intervals=self._generate_busy_intervals(student_json.get('availability', {})),
+                    min_duration=timedelta(minutes=row['min_duration_mins']), # From its own column
+                    max_duration=timedelta(minutes=row['max_duration_mins'])  # From its own column
+                )
+                students_map[student_id] = student
+
+            except (ValidationError, KeyError) as e:
+                student_name = row.get('student_data', {}).get('basicInfo', {}).get('firstName', 'Unknown')
+                raise ValueError(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
+                # print(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
+                # continue
         return list(students_map.values())
 
-   def get_tuition_list(self, raw_student_data: list[RealDictRow], student_list: list[Student]) -> list[Tuition]:
+    def _create_tuition_descriptors(self, all_student_rows: list[RealDictRow], student_list: list[Student]) -> list[Tuition]:
         """ Creates all unique Tuition descriptors needed for the week. """
-        # Create a quick lookup map for students by ID
         students_map = {s.id: s for s in student_list}
-        
         tuition_list = []
-        for user in raw_student_data:
-            for student_dict in user.get('students', []):
-                for subject_info in student_dict.get('subjects', []):
-                    try:
-                        student_ids = [student_dict['id']] + subject_info.get('sharedWith', [])
-                        current_students = [students_map[sid] for sid in student_ids if sid in students_map]
 
-                        descriptor = Tuition(
-                            students=current_students,
-                            subject=Subject.from_string(subject_info['name']),
-                            min_duration=timedelta(minutes=self.raw_admin_parameters["default_min_duration_mins"]),
-                            max_duration=timedelta(minutes=self.raw_admin_parameters["default_max_duration_mins"])
-                        )
-                        
-                        lessons_count = subject_info.get('lessonsPerWeek', 1)
-                        tuition_list.extend([descriptor] * lessons_count)
-                    except (ValidationError, KeyError) as e:
-                        student_name = student_dict.get('basicInfo', {}).get('firstName', 'Unknown')
-                        subject_name = subject_info.get('name', 'Unknown')
-                        print(f"WARNING: Skipping broken tuition record for '{student_name} - {subject_name}'. Reason: {e}")
-                        continue
+        for row in all_student_rows:
+            student_json = row['student_data']
+            primary_student_id = student_json['id']
+            primary_student = students_map.get(primary_student_id)
+            if not primary_student: continue # Skip if parsing failed earlier
+
+            for subject_info in student_json.get('subjects', []):
+                try:
+                    student_ids = [primary_student_id] + subject_info.get('sharedWith', [])
+                    current_students = [students_map[sid] for sid in student_ids if sid in students_map]
+
+                    descriptor = Tuition(
+                        students=current_students,
+                        subject=Subject.from_string(subject_info['name']),
+                        # Use the duration settings of the primary student
+                        min_duration=primary_student.min_duration,
+                        max_duration=primary_student.max_duration
+                    )
+                    
+                    lessons_count = subject_info.get('lessonsPerWeek', 1)
+                    tuition_list.extend([descriptor] * lessons_count)
+                except (ValidationError, KeyError) as e:
+                    raise ValueError(f"WARNING: Skipping broken tuition record for '{primary_student.first_name}'. Reason: {e}")
+                    # print(f"WARNING: Skipping broken tuition record for '{primary_student.first_name}'. Reason: {e}")
+                    # continue
         return tuition_list
-
-    def _generate_busy_intervals(self, availability_dict: dict) -> List[Tuple[datetime, datetime]]:
+ 
+    def _generate_busy_intervals(self, availability_dict: dict) -> list[Tuple[datetime, datetime]]:
         busy_intervals = []
         start_of_week_date = self.week_start_date.date()
         day_names = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -236,7 +218,7 @@ class Tuitions(SessionGroup):
 
         return AllowedTimes(free_intervals)
 
-    def _subtract_busy_from_interval(self, free_interval: Tuple, busy_intervals: List[Tuple]) -> List[Tuple]:
+    def _subtract_busy_from_interval(self, free_interval: Tuple, busy_intervals: list[Tuple]) -> list[Tuple]:
         free_start, free_end = free_interval
         remaining_slots = [(free_start, free_end)]
 

@@ -8,6 +8,7 @@ from personal_time_manager.sessions.tuitions import Tuitions
 from personal_time_manager.sessions.fixed_activities import FixedActivities
 from personal_time_manager.sessions.apple_google_calendar import CalendarActivities
 from personal_time_manager.sessions.base_session import Session, SessionTime
+from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
 
 #TOOD: make __all__ for base datatypes
 
@@ -15,11 +16,15 @@ def generate_csp_vars_and_domains(week_start_date: datetime) -> tuple[list[Sessi
     '''
 
     '''
+    # 1. Create a single instance of the DatabaseHandler
+    # This is not the only input of data, but it's common to all Session modules
+    db_handler = DatabaseHandler()
+
     # Step 1: Create list of ALL CSP variables `Session`
-    prayers = Prayers(week_start_date)
-    tuitions = Tuitions(week_start_date)
-    fixed_activities = FixedActivities(week_start_date) 
-    calendar_activities = CalendarActivities(week_start_date)
+    prayers = Prayers(week_start_date, db_handler)
+    tuitions = Tuitions(week_start_date, db_handler)
+    fixed_activities = FixedActivities(week_start_date, db_handler) 
+    calendar_activities = CalendarActivities(week_start_date, db_handler)
     csp_variables: list[Session] = []
     csp_variables.extend(prayers.csp_variables)
     csp_variables.extend(tuitions.csp_variables)

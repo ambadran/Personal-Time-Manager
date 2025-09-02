@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from typing import Optional, Union
 from datetime import datetime, timedelta
 from personal_time_manager.database.db_handler import DatabaseHandler
+from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
 
 class AllowedTimes:
     '''
@@ -222,11 +223,13 @@ class SessionGroup(ABC):
     WEEK_START_DAY = 5 # saturday
     def __init__(
             self, 
-            week_start_date: datetime):
+            week_start_date: datetime,
+            db_handler: DatabaseHandler):
         ''' Constructor '''
         if week_start_date.weekday() != self.WEEK_START_DAY:
             raise ValueError("week_start_date must be a Saturday!")
         self.week_start_date: datetime = week_start_date
+        self.db_handler = db_handler
 
     @abstractmethod
     def get_allowed_times(self, session_descriptor: SessionDescriptor) -> AllowedTimes:
