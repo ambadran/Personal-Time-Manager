@@ -71,21 +71,6 @@ class SessionDescriptor(ABC):
     This is made so that the Main Session class can accomodate any type or idea of sessions. 
     The different types of sessions will need different attributes to describe and process them on their own.
     """
-    def get_allowed_to_overlap_types(self) -> list[str]:
-        """
-        Mock implementation. In a real scenario, this would fetch from a database.
-        Returns a list of class names (strings) that are allowed to overlap this type.
-        """
-        # MOCK DATA: Simulating a JSON fetch from a database
-        overlap_rules = {
-            'Prayer': [],
-            'Tuition': ['Prayer'],
-            'Sleep': ['Prayer'],
-            'WorkMeeting': ['Prayer'],
-            'Gym': ['Prayer'] # Example: Gym can be interrupted by Prayer
-        }
-        return overlap_rules.get(self.__class__.__name__, [])
-
     @property
     @abstractmethod
     def name(self) -> str:
@@ -112,16 +97,29 @@ class Session(BaseModel):
         super().__init__(**data)
         self.allowed_to_overlap_types = self.session_descriptor.get_allowed_to_overlap_types()
 
-    def get_allowed_to_overlap(self, csp_variables: list[Session]) -> None:
-        '''
-        This Method runs after all CSP variables are defined then they are passed as argument and filtered with type
+    def populate_overlap_types(self, overlap_rules: Dict[str, List[str]]):
+        """
+        Populates this session's allowed_to_overlap_types list based on the
+        rules fetched from the database.
+        """
+        # Automatically find the category name from the descriptor's class name
+        # This follows your rule of being modular and maintainable.
+        category_name = self.session_descriptor.__class__.__name__
+        self.allowed_to_overlap_types = overlap_rules.get(category_name, [])
 
-        IMP: However, in the case I want to fine tune for specific Session objects, I can just inherit this function, get its return and tweak it however I want :D
-        '''
+    def get_allowed_to_overlap(self, csp_variables: list[Session]) -> None:
+        """
+        Populates the allowed_to_overlap list with actual Session objects
+        based on the types populated from the database.
+        """
         self.allowed_to_overlap = []
-        for session in csp_variables:
-            if type(session.session_descriptor) in self.allowed_to_overlap_type:
-                self.allowed_to_overlap.append(session)
+        for other_session in csp_variables:
+            if self is other_session:
+                continue
+            
+            other_category_name = other_session.session_descriptor.__class__.__name__
+            if other_category_name in self.allowed_to_overlap_types:
+                self.allowed_to_overlap.append(other_session)
 
     def __hash__(self):
         return id(self)

@@ -209,3 +209,40 @@ ALTER TYPE work_type_enum RENAME VALUE 'tuition' TO 'TUITION';
 
 -- V imp updating naming convention to latest 3 rule method of fixed_activities
 ALTER TYPE gym_workout_enum RENAME TO gym_type_enum;
+
+/* dealing with allowed_to_overlap settings */
+-- Create a single ENUM to represent all session categories
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'session_category_enum') THEN
+        CREATE TYPE session_category_enum AS ENUM (
+            'Gym',
+            'Sleep',
+            'Work',
+            'Meal',
+            'Tuition',
+            'Prayer',
+            'CalendarEvent' -- For future use with Google/Apple Calendar
+        );
+    END IF;
+END$$;
+
+-- Create the table to store the overlap rules
+CREATE TABLE IF NOT EXISTS activity_overlap_rules (
+    -- The category of the session that can BE interrupted (e.g., 'Gym')
+    host_category session_category_enum NOT NULL,
+
+    -- The category of the session that CAN interrupt (e.g., 'Prayer')
+    interrupter_category session_category_enum NOT NULL,
+
+    -- A composite primary key ensures that each rule is unique (e.g., you can't have Gym-Prayer twice)
+    PRIMARY KEY (host_category, interrupter_category)
+);
+
+-- Insert the overlap rules. This query will ignore duplicates if run again.
+INSERT INTO activity_overlap_rules (host_category, interrupter_category) VALUES
+    ('Gym', 'Prayer'),
+    ('Tuition', 'Prayer'),
+    ('Sleep', 'Prayer')
+ON CONFLICT (host_category, interrupter_category) DO NOTHING;
+

@@ -78,3 +78,23 @@ class DatabaseHandler:
         finally:
             if conn:
                 self._pool.putconn(conn)
+
+    def fetch_overlap_rules(self) -> Dict[str, List[str]]:
+            """
+            Fetches all overlap rules and formats them into a dictionary
+            where keys are hosts and values are a list of interrupters.
+            e.g., {'Gym': ['Prayer'], 'Tuition': ['Prayer']}
+            """
+            print("INFO: Loading overlap rules from database...")
+            query = "SELECT host_category, interrupter_category FROM activity_overlap_rules;"
+            rows = self.fetch_all(query)
+
+            rules = {}
+            for row in rows:
+                host = row['host_category']
+                interrupter = row['interrupter_category']
+                if host not in rules:
+                    rules[host] = []
+                rules[host].append(interrupter)
+            return rules
+

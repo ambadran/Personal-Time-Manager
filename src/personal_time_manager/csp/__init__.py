@@ -1,34 +1,31 @@
 '''
-Main CSP Algorithm Workflow
+Main CSP Algorithm Workflow and manages constraints
 '''
 from typing import Optional
 from personal_time_manager.csp.csp import CSP
 from personal_time_manager.csp.constraints import NoTimeOverlapConstraint
 from personal_time_manager.sessions.base_session import Session, SessionTime
-from personal_time_manager.sessions import generate_csp_vars_and_domains
+from personal_time_manager.sessions import CSPInputs
+from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
 
-def run_csp() -> Optional[dict[Session: SessionTime]]:
+def create_csp() -> CSP:
     '''
-    Runs the main Algorithm with all its inputs
+    creates the CSP framework
     '''
+    #TODO: fetch the saturday of this week
+    week_start_day
+    db_handler = DatabaseHandler()
+
     # Step 1: Get the variables and domains of the CSP framework
-    csp_variables, csp_domains = generate_csp_vars_and_domains()
+    csp_inputs = CSPInputs(week_start_day, db_handler)
 
     # Step 2: Creating CSP framework
-    csp = CSP(csp_variables, csp_domains)
+    csp = CSP(csp_inputs.variables, csp_inputs.domains)
 
     # Step 3: Applying Constraints classes
-    csp.add_constraint(NoTimeOverlapConstraint(csp_variables))
+    csp.add_constraint(NoTimeOverlapConstraint(csp_inputs.variables))
     #TODO: add NoSameDayTuition to tuition sessions
 
-    # Step 4: Execute DP Algorithm to find solution ;D
-    solution: Optional[dict[str, int]] = csp.backtracking_search()
-    if solution is None:
-        #TODO: what do I do if no timetable possible?!?
-        print("No solution found!")
-        raise ValueError("CSP no solution found!")
-
-    else:  # will print proper in the test_visualize
-        return solution
+    return csp
 
 

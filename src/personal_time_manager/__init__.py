@@ -1,35 +1,24 @@
 '''
-This Application has 
-- inputs (Sessions, backend)
-- Main Algorithm (CSP)
-- output (Sessions, backend)
-
-The Main Routine
-- Keeps looking for any new inputs..
-- Upon Receiving a new input, the master algorithm is triggered
-- Then new TimeTable is saved into the database and updated to all outputs
+runs the listener logic and runs backtracking search.
 '''
-import threading
-from flask import Flask
-from flask_cors import CORS
-from .backend.app import main_routes
+from personal_time_manager.csp import create_csp
 
-def gunicorn_main_routine():
+def main():
     '''
-    starts all underlying inputs, algorithm, outputs
-
-    This is the function that will run on the hosting service
-    like the one I am using `Render`
+    Finally, The Main Routine ;)
     '''
-    ### Backend Initialization
-    backend = Flask(__name__)
-    CORS(backend)
-    backend.register_blueprint(main_routes)
+    #TODO: implement the DB listener logic
+    #TODO: think how to take trigger from google calendar api if calendar events change?
 
-    ### Start other input fetching as threads
-    #TODO:
+    csp = create_csp()
+    # Step 4: Execute DP Algorithm to find solution ;D
+    solution: Optional[dict[str, int]] = csp.backtracking_search()
+    if solution is None:
+        #TODO: what do I do if no timetable possible?!?
+        print("No solution found!")
+        raise ValueError("CSP no solution found!")
 
-    return backend
-
+    else:  # will print proper in the test_visualize
+        return solution
 
 
