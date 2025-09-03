@@ -26,7 +26,7 @@ class CSPInputs:
     def __init__(self, week_start_date: datetime, db_handler: DatabaseHandler):
 
         ### INPUTS ###
-        overlap_rules = db_handler.fetch_overlap_rules()
+        overlap_rules: dict[str, list[str]] = db_handler.fetch_overlap_rules()
         prayers = Prayers(week_start_date, db_handler)
         tuitions = Tuitions(week_start_date, db_handler)
         fixed_activities = FixedActivities(week_start_date, db_handler) 
@@ -55,15 +55,43 @@ class CSPInputs:
                 raise ValueError(f"No domain values generated for {session}")
 
         ### OUTPUTS ####
-        self._overlap_rules = overlap_rules
         self.variables: list[Session] = csp_variables
         self.domains: dict[Session, list[SessionTime]] = csp_domains
+        self._overlap_rules = overlap_rules
         self.unique_identifier: str = self.generate_input_hash()
         ##############
 
-    def generate_input_hash(self, db_handler) -> str:
+    def generate_input_hash(self) -> str:
         """
-        Fetches all relevant settings and data, creates a canonical representation,
-        and returns a SHA-256 hash of that data.
+        Creates a reliable hash from the final processed variables, domains,
+        and overlap rules by first converting them into a canonical string.
         """
-        #TODO: hash the csp_variables and csp_domain somehow
+        # 1. Create a canonical (sorted, string-based) representation of the domains.
+        canonical_domains = {}
+        # Sort sessions by name to ensure dictionary order is always the same
+        sorted_sessions = sorted(self.variables, key=lambda s: s.session_descriptor.name)
+
+        for session in sorted_sessions:
+            session_name = session.session_descriptor.name
+            
+            # Convert each SessionTime to a stable string and sort the list
+            domain_strings = [
+                f"{st.start_time.isoformat()}|{st.end_time.isoformat()}"
+                for st in self.domains[session]
+            ]
+            domain_strings.sort()
+            canonical_domains[session_name] = domain_strings
+
+        # 2. Combine all inputs into a single dictionary.
+        all_inputs_canonical = {
+            "domains": canonical_domains,
+            "overlap_rules": self._overlap_rules
+        }
+
+        # 3. Convert the entire structure to a sorted JSON string.
+        # This is the final, stable fingerprint of the inputs.
+        canonical_string = json.dumps(all_inputs_canonical, sort_keys=True)
+        
+        # 4. Generate and return the SHA-256 hash of the canonical string.
+        hash_object = hashlib.sha256(canonical_string.encode('utf-8'))
+        return hash_object.hexdigest()

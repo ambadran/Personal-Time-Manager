@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS activity_overlap_rules (
     -- The category of the session that CAN interrupt (e.g., 'Prayer')
     interrupter_category session_category_enum NOT NULL,
 
-    -- A composite primary key ensures that each rule is unique (e.g., you can't have Gym-Prayer twice)
+    /* A composite primary key ensures that each rule is unique (e.g., you can't have Gym-Prayer twice)*/
     PRIMARY KEY (host_category, interrupter_category)
 );
 
@@ -246,3 +246,24 @@ INSERT INTO activity_overlap_rules (host_category, interrupter_category) VALUES
     ('Sleep', 'Prayer')
 ON CONFLICT (host_category, interrupter_category) DO NOTHING;
 
+
+/* now the timetable_runs table that will store the output of CSP */
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'run_status_enum') THEN
+        CREATE TYPE run_status_enum AS ENUM ('SUCCESS', 'FAILED');
+    END IF;
+END$$;
+
+-- Create the table to log every CSP run
+CREATE TABLE IF NOT EXISTS timetable_runs (
+    id BIGSERIAL PRIMARY KEY,
+    run_started_at TIMESTAMPTZ NOT NULL,
+    run_duration_ms INTEGER,
+    status run_status_enum NOT NULL,
+    input_version_hash TEXT NOT NULL,
+    trigger_source TEXT,
+    solution_data JSONB,
+    error_message TEXT,
+    INDEX idx_runs_input_hash (input_version_hash)
+);

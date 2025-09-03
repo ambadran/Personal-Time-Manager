@@ -93,11 +93,7 @@ class Session(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.allowed_to_overlap_types = self.session_descriptor.get_allowed_to_overlap_types()
-
-    def populate_overlap_types(self, overlap_rules: Dict[str, List[str]]):
+    def populate_overlap_types(self, overlap_rules: dict[str, list[str]]):
         """
         Populates this session's allowed_to_overlap_types list based on the
         rules fetched from the database.

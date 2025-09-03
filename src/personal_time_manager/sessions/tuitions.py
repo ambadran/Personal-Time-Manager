@@ -70,13 +70,18 @@ class Tuition(BaseModel, SessionDescriptor):
     subject: Subject
     min_duration: timedelta
     max_duration: timedelta
+    lesson_index: int # NEW: Tracks which lesson this is (1, 2, etc.)
 
     model_config = ConfigDict(frozen=True)
 
     @property
     def name(self):
         student_names = "_".join(s.first_name for s in sorted(self.students, key=lambda x: x.id))
-        return f"Tuition_{student_names}_{self.subject.name}"
+        # NEW: Add the index to the name if it's part of a series
+        name = f"Tuition_{student_names}_{self.subject.name}"
+        if self.lesson_index > 0: # Assuming 0 for single lessons, 1+ for multi
+            name += f"_{self.lesson_index}"
+        return name
 
     def __hash__(self):
         # Create a stable hash based on student IDs and subject
@@ -163,17 +168,17 @@ class Tuitions(SessionGroup):
                 try:
                     student_ids = [primary_student_id] + subject_info.get('sharedWith', [])
                     current_students = [students_map[sid] for sid in student_ids if sid in students_map]
-
-                    descriptor = Tuition(
-                        students=current_students,
-                        subject=Subject.from_string(subject_info['name']),
-                        # Use the duration settings of the primary student
-                        min_duration=primary_student.min_duration,
-                        max_duration=primary_student.max_duration
-                    )
-                    
                     lessons_count = subject_info.get('lessonsPerWeek', 1)
-                    tuition_list.extend([descriptor] * lessons_count)
+                    for i in range(lessons_count):
+                        descriptor = Tuition(
+                            students=current_students,
+                            subject=Subject.from_string(subject_info['name']),
+                            min_duration=primary_student.min_duration,
+                            max_duration=primary_student.max_duration,
+                            lesson_index=i + 1 # Add the lesson index here
+                        )
+                        tuition_list.append(descriptor)
+
                 except (ValidationError, KeyError) as e:
                     raise ValueError(f"WARNING: Skipping broken tuition record for '{primary_student.first_name}'. Reason: {e}")
                     # print(f"WARNING: Skipping broken tuition record for '{primary_student.first_name}'. Reason: {e}")

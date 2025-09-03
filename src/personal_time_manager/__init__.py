@@ -1,24 +1,47 @@
 '''
-runs the listener logic and runs backtracking search.
-'''
-from personal_time_manager.csp import create_csp
+The Highest Point of execution of this whole Program ;)
 
-def main():
+Runs `listener` logic to capture any real-time change in any of the inputs:
+    - Week start date
+    - Database changes
+    - Calendar changes
+    - Manual trigger from Admin Panel
+'''
+from typing import Optional
+from datetime import datetime
+from personal_time_manager.csp.builder import CSPBuilder
+from personal_time_manager.database.db_handler import DatabaseHandler
+from personal_time_manager.sessions.base_session import Session, SessionTime
+# from personal_time_manager.sessions.apple_google_calendar import GoogleCalendarListener, AppleCalendarListener
+
+def Main:
     '''
     Finally, The Main Routine ;)
     '''
-    #TODO: implement the DB listener logic
-    #TODO: think how to take trigger from google calendar api if calendar events change?
+    triggers = Triggers()
 
-    csp = create_csp()
-    # Step 4: Execute DP Algorithm to find solution ;D
-    solution: Optional[dict[str, int]] = csp.backtracking_search()
-    if solution is None:
-        #TODO: what do I do if no timetable possible?!?
-        print("No solution found!")
-        raise ValueError("CSP no solution found!")
+    while True:
 
-    else:  # will print proper in the test_visualize
-        return solution
+        # Main trigger poll Logic
+        if triggers.any():
+            #TODO: log
 
+            # Start timing
+            run_start_time = datetime.now()
 
+            # Step 1: Make a Builder to create the CSP framework ;)
+            csp_builder = CSPBuilder()
+
+            # Step 2: get the CSP Framework ;)
+            csp = csp_builder.csp
+
+            # Step 3: Execute DP Algorithm to find solution ;D
+            solution: TimeTable = TimeTable(csp.backtracking_search(), trigger.source, csp_builder.unique_identifier, )
+
+            # Step 4: Handle the output 
+            TimeTable.handle()
+
+        time.sleep(10)
+
+if __name__ == '__main__':
+    Main()

@@ -6,6 +6,7 @@ I still need to seperate the efficienttutor backend from the CSP framework and m
 '''
 import os
 import psycopg2
+import select
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
@@ -97,4 +98,31 @@ class DatabaseHandler:
                     rules[host] = []
                 rules[host].append(interrupter)
             return rules
+
+    def listener_check(self) -> Optional[str]:
+        """
+        Performs a non-blocking check for a DB notification.
+        Returns the notification payload if one exists, otherwise None.
+        """
+        conn = None
+        try:
+            # Get a dedicated connection for listening from the pool
+            conn = self._pool.getconn()
+            conn.autocommit = True
+            curs = conn.cursor()
+            curs.execute("LISTEN csp_update_channel;")
+
+            # Check if there is data to be read, with a timeout of 0 (non-blocking)
+            if select.select([conn], [], [], 0) == ([], [], []):
+                return None
+
+            conn.poll()
+            if conn.notifies:
+                return conn.notifies.pop(0).payload
+            return None
+        finally:
+            if conn:
+                # Return the connection to the pool
+                self._pool.putconn(conn)
+
 
