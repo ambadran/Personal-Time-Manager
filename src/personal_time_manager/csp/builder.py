@@ -2,12 +2,15 @@
 Main CSP Algorithm Workflow and manages constraints
 '''
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
+
 from personal_time_manager.csp.csp import CSP
-from personal_time_manager.csp.constraints import NoTimeOverlapConstraint
-from personal_time_manager.sessions.base_session import Session, SessionTime
+from personal_time_manager.csp.constraints import NoTimeOverlapConstraint, NoSameDayTuition
 from personal_time_manager.sessions import CSPInputs
+from personal_time_manager.sessions.base_session import Session, SessionTime
 from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
+from personal_time_manager.common.config import START_OF_WEEK_DAY_INDEX, ALGORITHM_TRIGGER_DAY_INDEX
 
 class CSPBuilder:
     '''
@@ -18,10 +21,7 @@ class CSPBuilder:
 
     the db_handler is passed to this class, it's is used in the most upper level of this Program as a `listener` to any updates in DB
     '''
-    # Some fixed settings
-    START_OF_WEEK_DAY_INDEX = 6 # Saturday
-    ALGORITHM_TRIGGER_DAY_INDEX = 5 # Friday
-    def __init__(self, db_handler: DatabaseHandler, week_start_day: Optional[datetime]) -> CSP:
+    def __init__(self, db_handler: DatabaseHandler, week_start_day: Optional[datetime] = None):
         '''
         if no specific datetime is inserted then automatically fall back to this week's Saturday
         unless it's Friday, then run the next week's
@@ -51,11 +51,11 @@ class CSPBuilder:
 
     def _get_tuitions_by_group(self) -> list[list[Session]]:
         """ Groups tuition sessions to apply constraints. """
-        # FIX: Correctly implement this helper method
         tuitions_by_group = defaultdict(list)
         for session in self.csp_inputs.variables:
             if isinstance(session.session_descriptor, Tuition):
                 # Use the descriptor's hash to group identical tuitions
+                # (same students and subject)
                 tuitions_by_group[hash(session.session_descriptor)].append(session)
         return list(tuitions_by_group.values())
 

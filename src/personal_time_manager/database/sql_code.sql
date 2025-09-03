@@ -255,15 +255,34 @@ BEGIN
     END IF;
 END$$;
 
--- Create the table to log every CSP run
+
 CREATE TABLE IF NOT EXISTS timetable_runs (
+    -- A unique, auto-incrementing ID for each run attempt.
     id BIGSERIAL PRIMARY KEY,
+
+    -- The timestamp when the CSP solver process began.
     run_started_at TIMESTAMPTZ NOT NULL,
+
+    -- The total time the solver took, stored in milliseconds.
     run_duration_ms INTEGER,
+
+    -- The final status of the run, using our custom ENUM type.
     status run_status_enum NOT NULL,
+
+    -- The unique fingerprint of the inputs used for this run.
     input_version_hash TEXT NOT NULL,
+
+    -- The event that triggered this run (e.g., 'db_notify:students_changed').
     trigger_source TEXT,
+
+    -- The resulting timetable if the run was successful, stored as JSONB.
     solution_data JSONB,
-    error_message TEXT,
-    INDEX idx_runs_input_hash (input_version_hash)
+
+    -- A message explaining why a run failed.
+    error_message TEXT
 );
+
+
+-- Step 3: Create an index on the hash column to speed up searches.
+-- This is useful for finding all runs related to a specific set of inputs.
+CREATE INDEX IF NOT EXISTS idx_runs_input_hash ON timetable_runs (input_version_hash);

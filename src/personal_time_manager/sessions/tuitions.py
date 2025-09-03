@@ -77,16 +77,17 @@ class Tuition(BaseModel, SessionDescriptor):
     @property
     def name(self):
         student_names = "_".join(s.first_name for s in sorted(self.students, key=lambda x: x.id))
-        # NEW: Add the index to the name if it's part of a series
         name = f"Tuition_{student_names}_{self.subject.name}"
-        if self.lesson_index > 0: # Assuming 0 for single lessons, 1+ for multi
+        if self.lesson_index > 1: # Only add index if more than one lesson
             name += f"_{self.lesson_index}"
         return name
 
+    # FIX: Implement a stable, value-based hash
     def __hash__(self):
-        # Create a stable hash based on student IDs and subject
+        # Create a sorted, immutable tuple of student IDs
         student_ids = tuple(sorted(s.id for s in self.students))
-        return hash((student_ids, self.subject))
+        # Hash the combination of students, subject, and lesson index
+        return hash((student_ids, self.subject, self.lesson_index))
 
 class Tuitions(SessionGroup):
     """

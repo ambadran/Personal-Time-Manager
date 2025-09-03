@@ -10,7 +10,7 @@ import select
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 class DatabaseHandler:
     """
@@ -19,6 +19,9 @@ class DatabaseHandler:
     _pool = None
 
     def __init__(self):
+        """
+        Initializes the connection pool if it doesn't already exist.
+        """
         if DatabaseHandler._pool is None:
             load_dotenv()
             database_url = os.environ.get('DATABASE_URL')

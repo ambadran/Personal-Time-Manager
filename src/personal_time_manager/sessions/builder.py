@@ -73,7 +73,7 @@ class CSPInputs:
 
         for session in sorted_sessions:
             session_name = session.session_descriptor.name
-            
+ 
             # Convert each SessionTime to a stable string and sort the list
             domain_strings = [
                 f"{st.start_time.isoformat()}|{st.end_time.isoformat()}"
@@ -91,7 +91,8 @@ class CSPInputs:
         # 3. Convert the entire structure to a sorted JSON string.
         # This is the final, stable fingerprint of the inputs.
         canonical_string = json.dumps(all_inputs_canonical, sort_keys=True)
-        
+ 
         # 4. Generate and return the SHA-256 hash of the canonical string.
         hash_object = hashlib.sha256(canonical_string.encode('utf-8'))
         return hash_object.hexdigest()
+
