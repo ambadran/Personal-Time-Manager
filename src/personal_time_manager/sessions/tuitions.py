@@ -15,7 +15,7 @@ from enum import Enum, auto
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
-from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
+from personal_time_manager.database.db_handler import DatabaseHandler
 from psycopg2.extras import RealDictRow
 
 # Temp

@@ -9,7 +9,7 @@ from personal_time_manager.csp.csp import CSP
 from personal_time_manager.csp.constraints import NoTimeOverlapConstraint, NoSameDayTuition
 from personal_time_manager.sessions import CSPInputs
 from personal_time_manager.sessions.base_session import Session, SessionTime
-from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
+from personal_time_manager.database.db_handler import DatabaseHandler
 from personal_time_manager.common.config import START_OF_WEEK_DAY_INDEX, ALGORITHM_TRIGGER_DAY_INDEX
 
 class CSPBuilder:

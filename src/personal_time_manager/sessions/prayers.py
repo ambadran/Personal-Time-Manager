@@ -15,7 +15,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta, time
 from personal_time_manager.sessions.base_session import AllowedTimes, SessionDescriptor, Session, SessionTime, SessionGroup
-from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
+from personal_time_manager.database.db_handler import DatabaseHandler
 
 class PrayerType(Enum):
     FAJR = auto()

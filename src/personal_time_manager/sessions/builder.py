@@ -10,7 +10,7 @@ from personal_time_manager.sessions.tuitions import Tuitions
 from personal_time_manager.sessions.fixed_activities import FixedActivities
 from personal_time_manager.sessions.apple_google_calendar import CalendarActivities
 from personal_time_manager.sessions.base_session import Session, SessionTime
-from personal_time_manager.database.db_handler2 import DatabaseHandler #TODO: remove the 2 when db_handler is finished
+from personal_time_manager.database.db_handler import DatabaseHandler
 
 class CSPInputs:
     '''
