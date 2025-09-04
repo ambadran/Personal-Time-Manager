@@ -8,14 +8,14 @@ Runs `listener` logic to capture any real-time change in any of the inputs:
     - Manual trigger from Admin Panel
 '''
 import time
-from datetime import datetime
 import logging
+from datetime import datetime
 
+from personal_time_manager.common.logger import setup_logging
+from personal_time_manager.core.triggers import Triggers
 from personal_time_manager.csp.builder import CSPBuilder
 from personal_time_manager.database.db_handler import DatabaseHandler
-from personal_time_manager.core.triggers import Triggers
 from personal_time_manager.core.timetable_handler import TimeTable, FailureReason, FailureCode
-from personal_time_manager.common.logger import setup_logging
 
 # Initiating logger, this is the only time it needs to be configured
 setup_logging()
@@ -31,12 +31,12 @@ def main():
     db_handler = DatabaseHandler()
     triggers = Triggers(db_handler)
     
-    print("Application starting up. Listening for triggers...")
+    logger.info("Application starting up. Listening for triggers...")
     while True:
         try:
             # 1. Check for triggers
             if triggers.any():
-                print(f"Trigger detected! Source: {triggers.source}")
+                logger.info(f"Trigger detected! Source: {triggers.source}")
 
                 # Ensure those exist for the finally block
                 solution = None
@@ -57,7 +57,7 @@ def main():
 
                 except Exception as e:
                     # Catch any other error during the build or search
-                    print(f"A CRITICAL ERROR occurred: {e}")
+                    logger.critical(f"A CRITICAL ERROR occurred: {e}")
                     failure = FailureReason(code=FailureCode.BUILD_ERROR, message=str(e))
 
                 finally:
@@ -79,10 +79,10 @@ def main():
             time.sleep(10)
         
         except KeyboardInterrupt:
-            print("\nShutting down listener...")
+            logger.info("\nShutting down listener...")
             break
         except Exception as e:
-            print(f"An unexpected error occurred in the main loop: {e}")
+            logger.error(f"An unexpected error occurred in the main loop: {e}")
             time.sleep(30) # Wait a bit before retrying on major errors
 
 if __name__ == "__main__":

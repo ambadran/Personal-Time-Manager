@@ -43,7 +43,6 @@ class CSPInputs:
         # Step 2: Create the CSP Variable list
         for session in csp_variables:
             session.populate_overlap_types(overlap_rules) # First, set the allowed types
-        
         for session in csp_variables:  # finish the setup
             session.get_allowed_to_overlap(csp_variables)
 
