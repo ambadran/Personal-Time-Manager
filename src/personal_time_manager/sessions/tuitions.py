@@ -17,6 +17,9 @@ from typing import Optional
 from personal_time_manager.sessions.base_session import Session, SessionGroup, SessionDescriptor
 from personal_time_manager.database.db_handler import DatabaseHandler
 from psycopg2.extras import RealDictRow
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Temp
 # from pprint import pprint
@@ -47,13 +50,13 @@ class StudentStatus(Enum): # ;)
     HIM = auto()
 
 class Student(BaseModel):
-    id: str
+    id: str # The student's unique ID from within the JSON data
+    first_name: str
     first_name: str
     family_name: str
     grade: int
     cost_per_hour: float
     status: StudentStatus
-    # availability: list[datetime]
     busy_intervals: list[tuple[datetime, datetime]]
 
     def __hash__(self):
@@ -96,12 +99,12 @@ class Tuitions(SessionGroup):
     def __init__(self, week_start_date: datetime, db_handler: DatabaseHandler):
         super().__init__(week_start_date, db_handler)
 
-        # Step 1: Fetch all student data in a single query
-        all_student_rows = self._load_student_data_from_db()
+        # Step 1: Fetch all raw data from Database
+        all_students_map = self._load_all_students_from_db()
+        tuition_rows = self._load_tuitions_from_db()
 
         # Step 2: Parse Raw data
-        self.students: list[Student] = self._parse_students(raw_student_data)
-        self.tuition_descriptors: list[Tuition] = self._create_tuition_descriptors(raw_student_data, self.students)
+        self.tuition_descriptors: list[Tuition] = self._create_tuition_descriptors(tuition_rows, all_students_map)
 
         # 3. Create the final list of Session variables
         self._csp_variables: list[Session] = []
@@ -115,78 +118,74 @@ class Tuitions(SessionGroup):
                 )
             )
 
-    def _load_student_data_from_db(self) -> list[RealDictRow]:
-        """ Fetches all student records and their parameters in one go. """
-        #TODO: put this in the logging system
-        print("INFO: Loading all student data from database...")
-        #TODO: update this after students table in the database is updated
-        query = "SELECT id, user_id, student_data, cost_per_hour, status, min_duration_mins, max_duration_mins FROM students;"
-        return self.db_handler.fetch_all(query)
-
-    def _parse_students(self, all_student_rows: list[RealDictRow]) -> list[Student]:
-        """ Parses all unique students using the real per-student admin parameters. """
+    def _load_all_students_from_db(self) -> Dict[str, Student]:
+        """
+        Fetches all students, reading basic info and admin parameters from
+        their dedicated columns.
+        """
+        logger.info("INFO: Loading student data from database...")
+        # UPDATED QUERY: Select all the necessary dedicated columns
+        query = "SELECT first_name, last_name, grade, cost_per_hour, status, student_data FROM students;"
+        rows = self.db_handler.fetch_all(query)
+        
         students_map: Dict[str, Student] = {}
-        for row in all_student_rows:
+        for row in rows:
             try:
                 student_json = row['student_data']
-                student_id = student_json['id'] # The ID within the JSON
-                if student_id in students_map:
-                    continue
+                student_id = student_json['id']
                 
-                info = student_json['basicInfo']
-                student = Student(
+                # UPDATED LOGIC: Create the Student model with all fields from the DB
+                students_map[student_id] = Student(
                     id=student_id,
-                    first_name=info['firstName'],
-                    family_name=info['lastName'],
-                    grade=info['grade'],
-                    cost_per_hour=row['cost_per_hour'], # From its own column
-                    status=StudentStatus[row['status']], # From its own column
-                    busy_intervals=self._generate_busy_intervals(student_json.get('availability', {})),
-                    min_duration=timedelta(minutes=row['min_duration_mins']), # From its own column
-                    max_duration=timedelta(minutes=row['max_duration_mins'])  # From its own column
+                    first_name=row['first_name'],
+                    last_name=row['last_name'],
+                    grade=row['grade'],
+                    cost_per_hour=row['cost_per_hour'],
+                    status=StudentStatus[row['status']], # Convert string from DB to Enum
+                    busy_intervals=self._generate_busy_intervals(student_json.get('availability', {}))
                 )
-                students_map[student_id] = student
-
             except (ValidationError, KeyError) as e:
-                student_name = row.get('student_data', {}).get('basicInfo', {}).get('firstName', 'Unknown')
-                raise ValueError(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
-                # print(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
-                # continue
-        return list(students_map.values())
+                student_name = f"{row.get('first_name', 'Unknown')} {row.get('last_name', '')}".strip()
+                logger.warning(f"WARNING: Skipping broken student record for '{student_name}'. Reason: {e}")
+                raise ValueError()
+        return students_map
 
-    def _create_tuition_descriptors(self, all_student_rows: list[RealDictRow], student_list: list[Student]) -> list[Tuition]:
+    def _load_tuitions_from_db(self) -> List[Dict[str, Any]]:
+        """ Fetches the definitive list of required tuitions for the week. """
+        logger.info("INFO: Loading required tuitions from database...")
+        query = "SELECT student_ids, subject, lesson_index, min_duration_minutes, max_duration_minutes FROM tuitions;"
+        return self.db_handler.fetch_all(query)
+
+    def _create_tuition_descriptors(self, tuition_rows: List[Dict], students_map: Dict[str, Student]) -> List[Tuition]:
         """ Creates all unique Tuition descriptors needed for the week. """
-        students_map = {s.id: s for s in student_list}
-        tuition_list = []
+        descriptors = []
+        for row in tuition_rows:
+            try:
+                student_ids = row['student_ids']
+                current_students = [students_map[sid] for sid in student_ids if sid in students_map]
+                
+                if len(current_students) != len(student_ids):
+                    logger.warning(f"Skipping tuition because some student IDs were not found: {student_ids}")
+                    continue
 
-        for row in all_student_rows:
-            student_json = row['student_data']
-            primary_student_id = student_json['id']
-            primary_student = students_map.get(primary_student_id)
-            if not primary_student: continue # Skip if parsing failed earlier
+                descriptor = Tuition(
+                    students=current_students,
+                    subject=Subject.from_string(row['subject']),
+                    lesson_index=row['lesson_index'],
+                    min_duration=timedelta(minutes=row['min_duration_minutes']),
+                    max_duration=timedelta(minutes=row['max_duration_minutes'])
+                )
+                descriptors.append(descriptor)
+            except (ValidationError, KeyError, ValueError) as e:
+                logger.warning(f"Skipping broken tuition record. Reason: {e}")
+                continue
+        return descriptors
 
-            for subject_info in student_json.get('subjects', []):
-                try:
-                    student_ids = [primary_student_id] + subject_info.get('sharedWith', [])
-                    current_students = [students_map[sid] for sid in student_ids if sid in students_map]
-                    lessons_count = subject_info.get('lessonsPerWeek', 1)
-                    for i in range(lessons_count):
-                        descriptor = Tuition(
-                            students=current_students,
-                            subject=Subject.from_string(subject_info['name']),
-                            min_duration=primary_student.min_duration,
-                            max_duration=primary_student.max_duration,
-                            lesson_index=i + 1 # Add the lesson index here
-                        )
-                        tuition_list.append(descriptor)
-
-                except (ValidationError, KeyError) as e:
-                    raise ValueError(f"WARNING: Skipping broken tuition record for '{primary_student.first_name}'. Reason: {e}")
-                    # print(f"WARNING: Skipping broken tuition record for '{primary_student.first_name}'. Reason: {e}")
-                    # continue
-        return tuition_list
- 
     def _generate_busy_intervals(self, availability_dict: dict) -> list[Tuple[datetime, datetime]]:
+        """
+        Converts the 'not available' JSON data into a list of
+        concrete (start_busy, end_busy) datetime tuples for the week.
+        """
         busy_intervals = []
         start_of_week_date = self.week_start_date.date()
         day_names = ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -209,6 +208,7 @@ class Tuitions(SessionGroup):
     # --- Implementation of SessionGroup Abstract Methods ---
 
     def get_allowed_times(self, tuition: Tuition) -> AllowedTimes:
+        """ Calculates the common free time for all students in a tuition session. """
         week_start = self.week_start_date
         week_end = week_start + timedelta(days=7)
         free_intervals = [(week_start, week_end)]
@@ -225,6 +225,7 @@ class Tuitions(SessionGroup):
         return AllowedTimes(free_intervals)
 
     def _subtract_busy_from_interval(self, free_interval: Tuple, busy_intervals: list[Tuple]) -> list[Tuple]:
+        """ Helper function to poke holes in a free interval based on busy times. """
         free_start, free_end = free_interval
         remaining_slots = [(free_start, free_end)]
 

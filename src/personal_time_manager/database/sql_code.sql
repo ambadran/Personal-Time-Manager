@@ -286,3 +286,33 @@ CREATE TABLE IF NOT EXISTS timetable_runs (
 -- Step 3: Create an index on the hash column to speed up searches.
 -- This is useful for finding all runs related to a specific set of inputs.
 CREATE INDEX IF NOT EXISTS idx_runs_input_hash ON timetable_runs (input_version_hash);
+
+
+/* getting the basicInfo in their own columns */
+-- Step 1: Add the new, dedicated columns to the students table.
+-- We use VARCHAR for grade to allow for non-numeric values like "KG2".
+ALTER TABLE students
+ADD COLUMN first_name VARCHAR(255),
+ADD COLUMN last_name VARCHAR(255),
+ADD COLUMN grade VARCHAR(50);
+
+-- Step 2: Run a one-time data migration to populate the new columns
+-- This pulls the data out of the JSONB field.
+UPDATE students
+SET 
+    first_name = student_data -> 'basicInfo' ->> 'firstName',
+    last_name = student_data -> 'basicInfo' ->> 'lastName',
+    grade = student_data -> 'basicInfo' ->> 'grade'
+WHERE 
+    student_data ? 'basicInfo'; -- Only run on rows that have the old structure
+/* VERY IMP: DON"T RUN THIS EXCEPT WHEN I MAKE SURE NEW VERSION IS FULLY FUNCTIONAL */
+-- Step 3: (Optional but Recommended) Clean up the JSONB data
+-- This removes the now-redundant 'basicInfo' key from the JSONB column.
+UPDATE students
+SET 
+    student_data = student_data - 'basicInfo';
+
+
+ALTER TABLE students
+ALTER COLUMN grade TYPE INTEGER
+USING grade::integer;
