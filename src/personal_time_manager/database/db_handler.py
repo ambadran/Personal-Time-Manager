@@ -35,7 +35,7 @@ class DatabaseHandler:
             except psycopg2.OperationalError as e:
                 raise ConnectionError(f"Database connection pool failed: {e}")
 
-    def fetch_one(self, query: str, params: Optional[tuple] = None) -> Optional[Dict[str, Any]]:
+    def fetch_one(self, query: str, params: Optional[tuple] = None) -> Optional[dict[str, Any]]:
         """ Fetches a single row from the database. """
         conn = None
         try:
@@ -50,7 +50,7 @@ class DatabaseHandler:
             if conn:
                 self._pool.putconn(conn)
 
-    def fetch_all(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+    def fetch_all(self, query: str, params: Optional[tuple] = None) -> list[dict[str, Any]]:
         """ Fetches all rows for a given query. """
         conn = None
         try:
@@ -83,7 +83,7 @@ class DatabaseHandler:
             if conn:
                 self._pool.putconn(conn)
 
-    def fetch_overlap_rules(self) -> Dict[str, List[str]]:
+    def fetch_overlap_rules(self) -> dict[str, list[str]]:
             """
             Fetches all overlap rules and formats them into a dictionary
             where keys are hosts and values are a list of interrupters.
